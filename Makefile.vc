@@ -1,0 +1,35 @@
+!INCLUDE nmake.opt
+
+.cpp.obj:
+	$(CXX) -c $<
+
+CONV_OBJ	= \
+	olyvslideconv.obj \
+	jpgcachesupport.obj \
+ 	imagesupport.obj \
+ 	jpgsupport.obj \
+ 	tiffsupport.obj \
+ 	composite.obj \
+  console-mswin.obj \
+  blend.obj \
+  drawing.obj
+
+INFO_OBJ = \
+	svsinfo.obj \
+	imagesupport.obj \
+	jpgsupport.obj \
+ 	tiffsupport.obj
+
+all: 	olyvslideconv.exe svsinfo.exe
+
+olyvslideconv.exe: $(CONV_OBJ)
+	$(LD) /debug /out:olyvslideconv.exe /SUBSYSTEM:console $(CONV_OBJ) $(JPEG_LIB) $(TIFF_LIB) $(OPENCV_LIB) 
+
+svsinfo.exe: $(INFO_OBJ)
+	$(LD) /debug /out:svsinfo.exe /SUBSYSTEM:console $(INFO_OBJ) $(JPEG_LIB) $(TIFF_LIB) 
+
+clean:
+	-del *.obj
+	-del *.exe
+	-del *.pdb
+  

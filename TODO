@@ -1,0 +1,1 @@
+Possibly find a way to handle better memory management. Currently we have to read the entire Olympus Level 1 into memory and zoom out for the first google maps level.
