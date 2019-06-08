@@ -10,6 +10,7 @@ CONV_OBJ	= \
  	jpgsupport.obj \
  	tiffsupport.obj \
  	composite.obj \
+  composite-read.obj \
   console-mswin.obj \
   blend.obj \
   drawing.obj

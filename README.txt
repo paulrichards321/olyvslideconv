@@ -1,16 +1,18 @@
 #------------------------------------------------------------------------------
 # What is this?
-#------------------------------------------------------------------------------
-# An Olympus/Bacus ini jpg dataset convertor to TIFF/SVS format or 
-# Google Maps jpg dataset format.
+#-----------------------------------------------------------------------------
+# An Olympus/Bacus ini jpeg dataset convertor to TIFF/SVS format or 
+# Google Maps jpeg dataset format.
 # It is used for converting a directory of jpg files with two or more of their
 # accompanying  "FinalScan.ini", "FinalCond.ini", "SlideScan.ini", 
 # "SlideCond.ini" files to convert into a set of Google Maps jpeg files
 # readable by leaflet or the Google Maps javascript API.
+# The TIFF/SVS files are readable by Aperio ImageScope and
+# the open source library libopenslide.
 
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 # Instructions for compiling olyvslideconv:
-#------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 # Go to method 1 right below to use msys2 on Windows to build olyvslideconv.
 # Skip to method 2 if you are using Visual Studio.
 # Skip to method 3 if you are using RedHat/CentOS/Scientific Linux.
@@ -21,9 +23,9 @@
 # be typed into a shell prompt (unix or msys2) or command prompt 
 # (windows/visual studio)
 
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # METHOD 1 - Compiling olyvslideconv on Windows with msys2
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 # Install MSYS2. Download the package from here: 
 # http://www.msys2.org/
 
@@ -57,7 +59,8 @@ pacman -S mingw64/mingw-w64-x86_64-opencv
 # Install git if you plan on getting the code through git:
 pacman -S git
 
-# If you haven't already downloaded the source code for olyvslideconv grab it here:
+# If you haven't already downloaded the source code for olyvslideconv
+# grab it here:
 git clone https://github.com/paulrichards321/olyvslideconv.git
 
 # Compile it by typing:
@@ -69,14 +72,14 @@ make
 make install
 
 # You should have a executable olyvslideconv.exe. When moving the
-# executable to another system or not executing in a MSYS2 or Mingw shell you
-# will need to also supply the MSYS2 dlls for opencv, libjpeg-turbo, and
-# libtiff, and some other generic C/C++ runtime MSYS2 dlls.
+# executable to another system or not executing in a MSYS2 or Mingw shell 
+# you will need to also supply the MSYS2 dlls for opencv, libjpeg-turbo, 
+# and libtiff, and some other generic C/C++ runtime MSYS2 dlls.
 
-# -----------------------------------------------------------------------------
-# METHOD 2: Compiling olyvslideconv with Visual Studio (tested with Visual Studio 
-# 2015 on Windows 8.1 and Windows 10)
-# -----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# METHOD 2: Compiling olyvslideconv with Visual Studio 
+# (tested with Visual Studio 2015 on Windows 8.1 and Windows 10)
+# ----------------------------------------------------------------------------
 # --NOTE ABOUT VCVARS32.BAT, VCVARS64.BAT, CMAKE, AND ARCHITECTURE--
 # In the below instructions you will use a program called cmake and a Visual
 # Studio batch file called vcvars. Make sure when you set your architecture 
@@ -96,20 +99,20 @@ make install
 # https://www.nasm.us
 
 # --CONFIGURE NASM PATH--
-# Add the path of nasm.exe to your PATH environmental variables. Use the control
-# panel, advanced system settings, save and then close and reopen your command
-# window. Before you run cmake, make sure nasm is in the current PATH otherwise
-# libjpeg-turbo will not build properly.
+# Add the path of nasm.exe to your PATH environmental variables. Use the 
+# control panel, advanced system settings, save and then close and reopen 
+# your command window. Before you run cmake, make sure nasm is in the 
+# current PATH otherwise libjpeg-turbo will not build properly.
 
 # --DOWNLOAD AND BUILD LIBJPEG-TURBO--
 # Download libjpeg-turbo from https://libjpeg-turbo.org
 
-# Use cmake to configure libjpeg-turbo. You can use the gui or the command line,
-# whatever you find easier. If you use the command line, cd into the extracted
-# root directory of the source and create a build dir, then find the location of
-# your cmake.exe (see below for example) and use your version of Visual Studio
-# and architecture (Visual Studio 2015 Win64 shown below) and your version of
-# MSBuild and type:
+# Use cmake to configure libjpeg-turbo. You can use the gui or the command 
+# line, whatever you find easier. If you use the command line, cd into the 
+# extracted root directory of the source and create a build dir, then find
+# the location of your cmake.exe (see below for example) and use your 
+# version of Visual Studio and architecture (Visual Studio 2015 Win64 
+# shown below) and your version of MSBuild and type:
 cd libjpeg-turbo-1.5.3
 mkdir build
 cd build
@@ -131,10 +134,10 @@ JPEGDIR = ../libjpeg-turbo
 JPEG_INCLUDE = -I../libjpeg-turbo_dist -I$(JPEGDIR)
 JPEG_LIB = ../libjpeg-turbo_dist/Debug/turbojpeg-static.lib
 
-# After you edited the above four lines, then you can build libtiff using nmake.
-# Open a command window and run the right
-# vcvars bat file for your architecture and cd into the right version of libtiff
-# that you downloaded by typing:
+# After you edited the above four lines, then you can build libtiff using 
+# nmake. Open a command window and run the right vcvars bat file for your 
+# architecture and cd into the right version of libtiff that you 
+# downloaded by typing:
 "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64\vcvars64.bat"
 cd tiff-4.0.9
 nmake /f Makefile.vc
@@ -146,11 +149,12 @@ nmake /f Makefile.vc
 # files and library files.
 
 # --CONFIGURE INCLUDE AND LIB LOCATIONS FOR olyvslideconv--
-# Download the source for olyvslideconv via git or unzip or untar it. Run the vcvars
-# bat file for your architecture and then with the command window still open
-# cd into the olyvslideconv directory, then edit nmake.opt with your favorite editor
-# and update the INCLUDE and LIB variables at the top of the file to point to 
-# the INCLUDE of the libjpeg-turbo build and source directory, the libtiff 
+# Download the source for olyvslideconv via git or unzip or untar it. 
+# Run the vcvars bat file for your architecture and then with the 
+# command window still open cd into the olyvslideconv directory, 
+# then edit nmake.opt with your favorite editor and update the INCLUDE 
+# and LIB variables at the top of the file to point to the INCLUDE 
+# of the libjpeg-turbo build and source directory, the libtiff 
 # source directory, and the opencv include directory. Then modify (if needed) 
 # the location of the LIB files for libjpeg-turbo, libtiff, and opencv. The 
 # variables in nmake.opt that need to be tailored depending upon the versions 
@@ -163,14 +167,13 @@ cd olyvslideconv
 nmake /f Makefile.vc
 
 # --FINAL NOTES--
-# You will properly get some warning messages about signed and unsigned 
-# integers but it will still work properly once it is built. If it builds 
-# without any errors, olyvslideconv.exe will be in the current directory.
+# It should build without any errors, and olyvslideconv.exe and svsinfo.exe 
+# will be in the current directory.
 
-# You will also need the dll for opencv (at this point opencv_world342.dll) in
-# the same directory as olyvslideconv.exe when you run it. The Visual C++ 2015 C/C++
-# Runtime Package (which will already be installed with the Compiler) might also
-# be needed to run it.
+# You will also need the dll for opencv (at this point opencv_world342.dll) 
+# in the same directory as olyvslideconv.exe when you run it. 
+# The Visual C++ 2015 C/C++ Runtime Package (which will already be 
+# installed with the Compiler) might also be needed to run it.
 
 # If you are still lost, please be patient. I am going to script this whole 
 # process with PowerShell soon.
@@ -201,7 +204,7 @@ git checkout 3.4.3
 cd ..
 mkdir opencv-build
 cd opencv-build
-cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ../opencv/
+cmake3 -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ../opencv/
 make
 sudo make install
 
@@ -221,7 +224,7 @@ cd ..
 git clone https://github.com/paulrichards321/olyvslideconv.git
 mkdir olyvslideconv-build
 cd olyvslideconv-build
-cmake ../olyvslideconv
+cmake3 ../olyvslideconv
 make
 
 # -- INSTALL THE PROGRAM --
