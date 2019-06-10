@@ -52,6 +52,7 @@ set ( INFO_HEADERS
 if (WIN32 OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   list(APPEND MAIN_HEADERS include/console-mswin.h)
   list(APPEND MAIN_HEADERS include/getopt-mswin.h)
+  list(APPEND MAIN_SRC src/console-mswin.cc)
 else()
   list(APPEND MAIN_HEADERS include/console-unix.h)
 endif()
