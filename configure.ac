@@ -6,7 +6,7 @@ LT_INIT
 AC_CONFIG_HEADER([conf.h])
 AC_CONFIG_SRCDIR([src])
 AC_PROG_CXX
-AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_MACRO_DIR([m4])
 AC_MSG_CHECKING([pkg-config m4 macros])
 if test m4_ifdef([PKG_CHECK_MODULES], [yes], [no]) == yes; then
     AC_MSG_RESULT([yes]);
@@ -17,51 +17,69 @@ pkg-config is required.
 See pkg-config.freedesktop.org])
 fi
 
-AC_CANONICAL_HOST
-
-build_windows=no
-
 # Detect the target system on Windows
+AC_CANONICAL_HOST
+build_windows=no
 case "${host_os}" in
   cygwin*|mingw*)
     build_windows=yes
     ;;
 esac
-
 AM_CONDITIONAL([WINDOWS], [test "$build_windows" = "yes"])
+
 my_jpeg_cflags=""
 my_jpeg_libs="none"
-AC_DEFINE([MY_JPEG_CFLAGS], [], [C Flags for jpeg library])
-AC_DEFINE([MY_JPEG_LIBS], [], [LD Flags for jpeg library])
 AC_SEARCH_LIBS([jpeg_CreateDecompress], [jpeg], [
   my_jpeg_libs="jpeg"
-])
+], [my_jpeg=0])
 PKG_CHECK_MODULES([LIBJPEG], [libjpeg >= 1.0.0], [
   my_jpeg_cflags="$LIBJPEG_CFLAGS"
   my_jpeg_libs="$LIBJPEG_LIBS"
-])
+], [my_turbo=0])
 AC_SEARCH_LIBS([jpeg_CreateDecompress], [jpegturbo], [
   my_jpeg_libs="jpegturbo" 
-]) 
+], [my_turbo=0]) 
 PKG_CHECK_MODULES([LIBTURBOJPEG], [libturbojpeg >= 1.0.0], [ 
   my_jpeg_cflags="$LIBTURBOJPEG_CFLAGS"
   my_jpeg_libs="$LIBTURBOJPEG_LIBS"
-])
+], [my_turbo=0])
 
 AM_CONDITIONAL([SHELL_WRAPPER], [test "$my_jpeg_libs" = "none" ])
-AM_COND_IF([SHELL_WRAPPER], [AC_MSG_FAILURE([Fatal Error: cannot find jpeg library.])])
-AC_DEFINE([MY_JPEG_CFLAGS], ["$my_jpeg_cflags"])
-AC_DEFINE([MY_JPEG_LIBS], ["$my_jpeg_libs"])
-PKG_CHECK_MODULES([OPENCV4], [opencv4 >= 4.0.0], [HAVE_OPENCV=true], [AC_MSG_FAILURE([Fatal Error: Cannot find opencv4 development libraries.])]) 
-PKG_CHECK_MODULES([LIBTIFF], [libtiff-4 >= 4.0], [], [AC_MSG_FAILURE([Fatal Error: Cannot find libtiff4 development libraries.])])
+AM_COND_IF([SHELL_WRAPPER], [AC_MSG_FAILURE([Fatal Error: cannot find jpeg development library. Is it installed?])])
+AC_DEFINE([LIBJPEG_CFLAGS], ["$my_jpeg_cflags"], [Compiler flags for libjpeg])
+AC_DEFINE([LIBJPEG_LIBS], ["$my_jpeg_libs"], [Linker library for libjpeg])
+PKG_CHECK_MODULES([OPENCV4], [opencv4 >= 4.0.0], [HAVE_OPENCV=true], [AC_MSG_FAILURE([Fatal Error: Cannot find opencv4 development libraries. Are they installed?])]) 
+
+my_tiff_clags=""
+my_tiff_libs="none"
+PKG_CHECK_MODULES([LIBTIFF], [libtiff-4 >= 4.0], [
+  my_tiff_cflags="$LIBTIFF_CFLAGS"
+  my_tiff_libs="$LIBTIFF_LIBS"
+  ], [my_tiff=0])
+AC_SEARCH_LIBS([TIFFOpen], [tiff], [my_tiff_libs="tiff"], [my_tiff=0])
+AM_CONDITIONAL([SHELL_WRAPPER2], [test "$my_tiff_libs" = "none" ])
+AM_COND_IF([SHELL_WRAPPER2], [AC_MSG_FAILURE([Fatal Error: cannot find libtiff development library. Is it installed?])])
+AC_DEFINE([LIBTIFF_CFLAGS], ["$my_tiff_cflags"], [Compiler flags for libtiff])
+AC_DEFINE([LIBTIFF_LIBS], ["$my_tiff_libs"], [Linker libraries for libtiff])
 
 AC_LANG_PUSH([C++])
-AX_CHECK_COMPILE_FLAG([-Wall], [CXXFLAGS="$CXXFLAGS -Wall"])
-AX_CXX_COMPILE_STDCXX_11([ext],[mandatory])
-#AX_CHECK_COMPILE_FLAG([-std=c++11], [CXXFLAGS="$CXXFLAGS -std=c++11 -Wall"])
-AC_LANG_POP([C++])
+AC_MSG_CHECKING([whether compiler understands -Wall])
+old_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -Wall"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[])],
+  AC_MSG_RESULT(yes),
+  AC_MSG_RESULT(no)
+  CXXFLAGS="$old_CXXFLAGS")
 
-#AC_CHECK_HEADERS([])
+AC_MSG_CHECKING([whether compiler understands -std=c++11])
+old_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -std=c++11"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[])],
+  AC_MSG_RESULT(yes),
+  AC_MSG_RESULT(no)
+  CXXFLAGS="$old_CXXFLAGS")
+
+AC_LANG_POP([C++])
 
 INCLUDES="$INCLUDES -I\$(top_srcdir)\include"
 

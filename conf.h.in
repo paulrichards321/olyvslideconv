@@ -1,8 +1,5 @@
 /* conf.h.in.  Generated from configure.ac by autoheader.  */
 
-/* define if the compiler supports basic C++11 syntax */
-#undef HAVE_CXX11
-
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
@@ -33,17 +30,21 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define if running the test suite so that test #27 works on MinGW. */
-#undef LT_MINGW_STATIC_TESTSUITE_HACK
+/* Compiler flags for libjpeg */
+#undef LIBJPEG_CFLAGS
 
-/* Define to the sub-directory where libtool stores uninstalled libraries. */
+/* Linker library for libjpeg */
+#undef LIBJPEG_LIBS
+
+/* Compiler flags for libtiff */
+#undef LIBTIFF_CFLAGS
+
+/* Linker libraries for libtiff */
+#undef LIBTIFF_LIBS
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
 #undef LT_OBJDIR
-
-/* C Flags for jpeg library */
-#undef MY_JPEG_CFLAGS
-
-/* LD Flags for jpeg library */
-#undef MY_JPEG_LIBS
 
 /* Name of package */
 #undef PACKAGE
