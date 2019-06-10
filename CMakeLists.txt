@@ -18,15 +18,15 @@ if (${TIFF_FOUND} MATCHES false)
 endif()
 
 set( MAIN_SRC
-  src/olyvslideconv.cpp
-  src/jpgcachesupport.cpp
-  src/imagesupport.cpp
-  src/jpgsupport.cpp
-  src/tiffsupport.cpp
-  src/composite.cpp
-  src/composite-read.cpp
-  src/drawing.cpp
-  src/blend.cpp
+  src/olyvslideconv.cc
+  src/jpgcachesupport.cc
+  src/imagesupport.cc
+  src/jpgsupport.cc
+  src/tiffsupport.cc
+  src/composite.cc
+  src/composite-read.cc
+  src/drawing.cc
+  src/blend.cc
 )
 
 set( MAIN_HEADERS
@@ -38,9 +38,9 @@ set( MAIN_HEADERS
 )
 
 set( INFO_SRC
-  src/imagesupport.cpp
-  src/tiffsupport.cpp
-  src/svsinfo.cpp
+  src/imagesupport.cc
+  src/tiffsupport.cc
+  src/svsinfo.cc
 )
 
 set ( INFO_HEADERS
