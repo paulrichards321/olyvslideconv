@@ -26,8 +26,8 @@ THE SOFTWARE.
 #include <cstdio>
 #include "imagesupport.h"
 
-extern "C" {
 namespace TIFFLIB {
+extern "C" {
 #include "tiffio.h"
 }
 }

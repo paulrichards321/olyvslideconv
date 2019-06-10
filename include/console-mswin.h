@@ -1,5 +1,8 @@
+#include <string>
+#include <cstring>
+#include <direct.h>
 void retractCursor();
 
-bool my_make_directory(std::string name);
+bool platform_mkdir(std::string name, std::string* perror);
 
 #define SEPARATOR '\\'

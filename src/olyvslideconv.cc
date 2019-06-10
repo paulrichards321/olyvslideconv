@@ -24,12 +24,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdlib>
 #include <cstdint>
 #include <cctype>
+#include <sys/stat.h>
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #include "console-mswin.h"
 #include "getopt-mswin.h"
 #else
 #include "console-unix.h"
-#include <sys/stat.h>
 #include <unistd.h>
 #include <getopt.h>
 #endif
