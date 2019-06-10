@@ -441,7 +441,7 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   else
   {
     memset(l.pBitmap4, l.bkgColor, l.bitmap4Size);
-    blendLevelsByBkgd(l.pBitmap4, l.pBitmapSrc, l.pImgScaledL2Mini->data, l.xDest, l.yDest, l.inputTileWidth, l.inputTileHeight, l.totalXSections / 2, l.xBkgdLimit, l.yBkgdLimit, l.xSubSections, l.totalXSections, l.ySubSections, l.totalYSections, l.bkgColor, true);
+    blendLevelsByBkgd(l.pBitmap4, l.pBitmapSrc, l.pImgScaledL2Mini->data, round(l.xDest), round(l.yDest), l.inputTileWidth, l.inputTileHeight, l.totalXSections / 2, l.xBkgdLimit, l.yBkgdLimit, l.xSubSections, l.totalXSections, l.ySubSections, l.totalYSections, l.bkgColor, true);
     l.pBitmapFinal = l.pBitmap4;
     l.writeOutputWidth = l.finalOutputWidth;
     l.writeOutputHeight = l.finalOutputHeight;
@@ -614,6 +614,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.yBkgdLimit = (int) ceil((double) 480 / (double) l.yScale);
     l.inputTileWidth=256+l.xBkgdLimit;
     l.inputTileHeight=256+l.yBkgdLimit;
+    l.grabWidthA=(double) l.inputTileWidth * l.xScale;
+    l.grabHeightA=(double) l.inputTileHeight * l.yScale;
   }
   else
   {
