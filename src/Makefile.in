@@ -88,7 +88,7 @@ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
 	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
-	$(top_srcdir)/m4/pkg.m4 $(top_srcdir)/configure.ac
+	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -97,12 +97,13 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am__olyvslideconv_SOURCES_DIST = blend.cc composite.cc \
+am__olyvslideconv_SOURCES_DIST = blend.cc safebmp.cc composite.cc \
 	composite-read.cc drawing.cc imagesupport.cc \
 	jpgcachesupport.cc jpgsupport.cc olyvslideconv.cc \
 	tiffsupport.cc console-mswin.cc
 @WINDOWS_TRUE@am__objects_1 = olyvslideconv-console-mswin.$(OBJEXT)
 am_olyvslideconv_OBJECTS = olyvslideconv-blend.$(OBJEXT) \
+	olyvslideconv-safebmp.$(OBJEXT) \
 	olyvslideconv-composite.$(OBJEXT) \
 	olyvslideconv-composite-read.$(OBJEXT) \
 	olyvslideconv-drawing.$(OBJEXT) \
@@ -112,24 +113,22 @@ am_olyvslideconv_OBJECTS = olyvslideconv-blend.$(OBJEXT) \
 	olyvslideconv-olyvslideconv.$(OBJEXT) \
 	olyvslideconv-tiffsupport.$(OBJEXT) $(am__objects_1)
 olyvslideconv_OBJECTS = $(am_olyvslideconv_OBJECTS)
-am__DEPENDENCIES_1 =
-olyvslideconv_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+olyvslideconv_LDADD = $(LDADD)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
 olyvslideconv_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CXXLD) \
-	$(olyvslideconv_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
-	-o $@
+	$(olyvslideconv_CXXFLAGS) $(CXXFLAGS) $(olyvslideconv_LDFLAGS) \
+	$(LDFLAGS) -o $@
 am_svsinfo_OBJECTS = svsinfo-imagesupport.$(OBJEXT) \
 	svsinfo-svsinfo.$(OBJEXT) svsinfo-tiffsupport.$(OBJEXT)
 svsinfo_OBJECTS = $(am_svsinfo_OBJECTS)
-svsinfo_DEPENDENCIES = $(am__DEPENDENCIES_1)
+svsinfo_LDADD = $(LDADD)
 svsinfo_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(svsinfo_CXXFLAGS) \
-	$(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+	$(CXXFLAGS) $(svsinfo_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -322,14 +321,15 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 ACLOCAL_AMFLAGS = -I $(top_srcdir)/m4
-olyvslideconv_SOURCES = blend.cc composite.cc composite-read.cc \
-	drawing.cc imagesupport.cc jpgcachesupport.cc jpgsupport.cc \
-	olyvslideconv.cc tiffsupport.cc $(am__append_1)
+olyvslideconv_SOURCES = blend.cc safebmp.cc composite.cc \
+	composite-read.cc drawing.cc imagesupport.cc \
+	jpgcachesupport.cc jpgsupport.cc olyvslideconv.cc \
+	tiffsupport.cc $(am__append_1)
 olyvslideconv_CXXFLAGS = -I$(top_srcdir)/include $(LIBJPEG_CFLAGS) $(LIBTIFF_CFLAGS) $(OPENCV4_CFLAGS)
-olyvslideconv_LDADD = $(LIBJPEG_LIBS) $(OPENCV4_LIBS) $(LIBTIFF_LIBS)
+olyvslideconv_LDFLAGS = $(LIBJPEG_LIBS) $(OPENCV4_LIBS) $(LIBTIFF_LIBS)
 svsinfo_SOURCES = imagesupport.cc svsinfo.cc tiffsupport.cc
 svsinfo_CXXFLAGS = -I$(top_srcdir)/include $(LIBTIFF_CFLAGS)
-svsinfo_LDADD = $(LIBTIFF_LIBS)
+svsinfo_LDFLAGS = $(LIBTIFF_LIBS)
 all: all-am
 
 .SUFFIXES:
@@ -437,6 +437,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/olyvslideconv-jpgcachesupport.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/olyvslideconv-jpgsupport.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/olyvslideconv-olyvslideconv.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/olyvslideconv-safebmp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/olyvslideconv-tiffsupport.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/svsinfo-imagesupport.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/svsinfo-svsinfo.Po@am__quote@
@@ -479,6 +480,20 @@ olyvslideconv-blend.obj: blend.cc
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='blend.cc' object='olyvslideconv-blend.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(olyvslideconv_CXXFLAGS) $(CXXFLAGS) -c -o olyvslideconv-blend.obj `if test -f 'blend.cc'; then $(CYGPATH_W) 'blend.cc'; else $(CYGPATH_W) '$(srcdir)/blend.cc'; fi`
+
+olyvslideconv-safebmp.o: safebmp.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(olyvslideconv_CXXFLAGS) $(CXXFLAGS) -MT olyvslideconv-safebmp.o -MD -MP -MF $(DEPDIR)/olyvslideconv-safebmp.Tpo -c -o olyvslideconv-safebmp.o `test -f 'safebmp.cc' || echo '$(srcdir)/'`safebmp.cc
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/olyvslideconv-safebmp.Tpo $(DEPDIR)/olyvslideconv-safebmp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='safebmp.cc' object='olyvslideconv-safebmp.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(olyvslideconv_CXXFLAGS) $(CXXFLAGS) -c -o olyvslideconv-safebmp.o `test -f 'safebmp.cc' || echo '$(srcdir)/'`safebmp.cc
+
+olyvslideconv-safebmp.obj: safebmp.cc
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(olyvslideconv_CXXFLAGS) $(CXXFLAGS) -MT olyvslideconv-safebmp.obj -MD -MP -MF $(DEPDIR)/olyvslideconv-safebmp.Tpo -c -o olyvslideconv-safebmp.obj `if test -f 'safebmp.cc'; then $(CYGPATH_W) 'safebmp.cc'; else $(CYGPATH_W) '$(srcdir)/safebmp.cc'; fi`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/olyvslideconv-safebmp.Tpo $(DEPDIR)/olyvslideconv-safebmp.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='safebmp.cc' object='olyvslideconv-safebmp.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(olyvslideconv_CXXFLAGS) $(CXXFLAGS) -c -o olyvslideconv-safebmp.obj `if test -f 'safebmp.cc'; then $(CYGPATH_W) 'safebmp.cc'; else $(CYGPATH_W) '$(srcdir)/safebmp.cc'; fi`
 
 olyvslideconv-composite.o: composite.cc
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(olyvslideconv_CXXFLAGS) $(CXXFLAGS) -MT olyvslideconv-composite.o -MD -MP -MF $(DEPDIR)/olyvslideconv-composite.Tpo -c -o olyvslideconv-composite.o `test -f 'composite.cc' || echo '$(srcdir)/'`composite.cc

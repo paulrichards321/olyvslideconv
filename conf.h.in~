@@ -30,15 +30,20 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Compiler flags for libjpeg */
+#undef LIBJPEG_CFLAGS
+
+/* Linker library for libjpeg */
+#undef LIBJPEG_LIBS
+
+/* Compiler flags for libtiff */
+#undef LIBTIFF_CFLAGS
+
+/* Linker libraries for libtiff */
+#undef LIBTIFF_LIBS
+
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
-
-/* C Flags for jpeg library */
-#undef MY_JPEG_CFLAGS
-
-/* LD Flags for jpeg library */
-#undef MY_JPEG_LIBS
 
 /* Name of package */
 #undef PACKAGE

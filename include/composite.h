@@ -32,6 +32,8 @@ THE SOFTWARE.
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
+#include "safebmp.h"
+
 inline char separator()
 {
 #if defined _WIN32 || defined __CYGWIN__ || defined _WIN64
@@ -184,7 +186,7 @@ public:
   bool open(const std::string& inputDir, bool setGrayScale = false, bool doBorderHighlight = true, int64_t bestXOffset = -1, int64_t bestYOffset = -1, cv::Mat **pImageL2 = NULL); 
   bool read(int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
   bool read(BYTE *pBmp, int level, int direction, int zLevel, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale, int64_t *readWidth, int64_t *readHeight);
-  BYTE* allocate(int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
+  bool allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
   bool findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, cv::Mat **pImageL2, std::fstream& logFile);
   bool checkLevel(int level);
   bool checkZLevel(int level, int direction, int zLevel); 
@@ -209,7 +211,7 @@ public:
 
 };
 
-void blendLevelsByBkgd(BYTE *pDest, BYTE *pSrc, BYTE *pSrcL2, int64_t x, int64_t y, int tileWidth, int tileHeight, int64_t rowWidth, int16_t xLimit, int16_t yLimit, int16_t *xFreeMap, int64_t totalXMap, int16_t *yFreeMap, int64_t totalYMap, BYTE bkgdColor, bool tiled);
+void blendLevelsByBkgd(safeBmp *pDest, safeBmp *pSrc, safeBmp *pSrcL2, int64_t x, int64_t y, int64_t rowWidth, int16_t xLimit, int16_t yLimit, int16_t *xFreeMap, int64_t totalXMap, int16_t *yFreeMap, int64_t totalYMap, BYTE bkgdColor, bool tiled);
 
 
 

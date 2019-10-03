@@ -15861,12 +15861,12 @@ if test -n "$OPENCV4_CFLAGS"; then
     pkg_cv_OPENCV4_CFLAGS="$OPENCV4_CFLAGS"
  elif test -n "$PKG_CONFIG"; then
     if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"opencv4 >= 4.0.0\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "opencv4 >= 4.0.0") 2>&5
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"opencv4 >= 4.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "opencv4 >= 4.0") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-  pkg_cv_OPENCV4_CFLAGS=`$PKG_CONFIG --cflags "opencv4 >= 4.0.0" 2>/dev/null`
+  pkg_cv_OPENCV4_CFLAGS=`$PKG_CONFIG --cflags "opencv4 >= 4.0" 2>/dev/null`
 		      test "x$?" != "x0" && pkg_failed=yes 
 else
   pkg_failed=yes
@@ -15878,12 +15878,12 @@ if test -n "$OPENCV4_LIBS"; then
     pkg_cv_OPENCV4_LIBS="$OPENCV4_LIBS"
  elif test -n "$PKG_CONFIG"; then
     if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"opencv4 >= 4.0.0\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "opencv4 >= 4.0.0") 2>&5
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"opencv4 >= 4.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "opencv4 >= 4.0") 2>&5
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-  pkg_cv_OPENCV4_LIBS=`$PKG_CONFIG --libs "opencv4 >= 4.0.0" 2>/dev/null`
+  pkg_cv_OPENCV4_LIBS=`$PKG_CONFIG --libs "opencv4 >= 4.0" 2>/dev/null`
 		      test "x$?" != "x0" && pkg_failed=yes 
 else
   pkg_failed=yes
@@ -15904,23 +15904,23 @@ else
         _pkg_short_errors_supported=no
 fi
         if test $_pkg_short_errors_supported = yes; then
-	        OPENCV4_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "opencv4 >= 4.0.0" 2>&1`
+	        OPENCV4_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "opencv4 >= 4.0" 2>&1`
         else 
-	        OPENCV4_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "opencv4 >= 4.0.0" 2>&1`
+	        OPENCV4_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "opencv4 >= 4.0" 2>&1`
         fi
 	# Put the nasty error message in config.log where it belongs
 	echo "$OPENCV4_PKG_ERRORS" >&5
 
 	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fatal Error: Cannot find opencv4 development libraries. Are they installed?
+as_fn_error $? "Fatal Error: Cannot find opencv4 development libraries. Are they installed? If you compiled opencv4 manually you will probably need to manually specify opencv4 pkgconfig creation with cmake -D OPENCV_GENERATE_PKGCONFIG=YES. After building with make, you will probably need to manually copy the opencv.pc4 file over into /usr/local/lib/pkgconfig or wherever your local pkgconfig files are!
 See \`config.log' for more details" "$LINENO" 5; }
 elif test $pkg_failed = untried; then
      	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 	{ { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Fatal Error: Cannot find opencv4 development libraries. Are they installed?
+as_fn_error $? "Fatal Error: Cannot find opencv4 development libraries. Are they installed? If you compiled opencv4 manually you will probably need to manually specify opencv4 pkgconfig creation with cmake -D OPENCV_GENERATE_PKGCONFIG=YES. After building with make, you will probably need to manually copy the opencv.pc4 file over into /usr/local/lib/pkgconfig or wherever your local pkgconfig files are!
 See \`config.log' for more details" "$LINENO" 5; }
 else
 	OPENCV4_CFLAGS=$pkg_cv_OPENCV4_CFLAGS
@@ -15929,7 +15929,6 @@ else
 $as_echo "yes" >&6; }
 	HAVE_OPENCV=true
 fi 
-
 my_tiff_clags=""
 my_tiff_libs="none"
 

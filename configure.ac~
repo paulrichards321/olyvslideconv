@@ -48,7 +48,8 @@ AM_CONDITIONAL([SHELL_WRAPPER], [test "$my_jpeg_libs" = "none" ])
 AM_COND_IF([SHELL_WRAPPER], [AC_MSG_FAILURE([Fatal Error: cannot find jpeg development library. Is it installed?])])
 AC_DEFINE([LIBJPEG_CFLAGS], ["$my_jpeg_cflags"], [Compiler flags for libjpeg])
 AC_DEFINE([LIBJPEG_LIBS], ["$my_jpeg_libs"], [Linker library for libjpeg])
-PKG_CHECK_MODULES([OPENCV4], [opencv4 >= 4.0], [HAVE_OPENCV=true], [AC_MSG_FAILURE([Fatal Error: Cannot find opencv4 development libraries. Are they installed? If you compiled opencv4 manually you will probably need to manually specify opencv4 pkgconfig creation with cmake -D OPENCV_GENERATE_PKGCONFIG=YES. After building with make, you will probably need to manually copy the opencv.pc4 file over into /usr/local/lib/pkgconfig or wherever your local pkgconfig files are!])]) 
+PKG_CHECK_MODULES([OPENCV4], [opencv4 >= 4.0.0], [HAVE_OPENCV=true], [AC_MSG_FAILURE([Fatal Error: Cannot find opencv4 development libraries. Are they installed?])]) 
+
 my_tiff_clags=""
 my_tiff_libs="none"
 PKG_CHECK_MODULES([LIBTIFF], [libtiff-4 >= 4.0], [
@@ -77,6 +78,20 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[])],
   AC_MSG_RESULT(yes),
   AC_MSG_RESULT(no)
   CXXFLAGS="$old_CXXFLAGS")
+
+AC_ARG_ENABLE(debug,
+AS_HELP_STRING([--enable-debug],
+               [enable debugging, default: no]),
+[case "${enableval}" in
+             yes) debug=true ;;
+             no)  debug=false ;;
+             *)   AC_MSG_ERROR([bad value ${enableval} for --enable-debug]) ;;
+esac],
+[debug=false])
+
+AM_CONDITIONAL(DEBUG, test x"$debug" = x"true")
+
+
 
 AC_LANG_POP([C++])
 

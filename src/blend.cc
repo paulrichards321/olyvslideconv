@@ -1,7 +1,9 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <assert.h>
 #include "composite.h"
+#include "blendbkgd.h"
 
 void CompositeSlide::blendLevelsByRegion(BYTE *pDest, BYTE *pSrc, int64_t x, int64_t y, int64_t width, int64_t height, int tileWidth, int tileHeight, double xScaleOut, double yScaleOut, int srcLevel)
 {
@@ -71,235 +73,247 @@ void CompositeSlide::blendLevelsByRegion(BYTE *pDest, BYTE *pSrc, int64_t x, int
 }
 
 
-void blendLevelsByBkgd(BYTE *pDest, BYTE *pSrc, BYTE *pSrcL2, int64_t x, int64_t y, int tileWidth, int tileHeight, int64_t rowWidth, int16_t xLimit, int16_t yLimit, int16_t *xFreeMap, int64_t totalXMap, int16_t *yFreeMap, int64_t totalYMap, BYTE bkgdColor, bool tiled)
+void blendLevelsScan(BlendBkgdArgs* args)
 {
-  int destTileWidth=tileWidth;
-  if (tiled) destTileWidth -= xLimit;
-  int destTileHeight=tileHeight;
-  if (tiled) destTileHeight -= yLimit;
-  if (x+destTileWidth <= 0 || y+destTileHeight <= 0 || x > totalXMap || y > totalYMap || destTileWidth <= 0 || tileWidth <= 0 || destTileHeight <= 0 || tileHeight <= 0 || xLimit < 0 || yLimit < 0) 
+  BYTE* pSrc = args->pSafeSrc->data;
+  int64_t tileWidth = args->pSafeSrc->width;
+  int64_t tileHeight = args->pSafeSrc->height;
+  int64_t x = args->x;
+  int64_t y = args->y;
+  int64_t ySrc = 0;
+  int64_t xSrc = 0;
+  if (y < 0 && abs(y) > tileHeight)
   {
     return;
   }
-  int64_t totalXMapDiv = totalXMap / 2;
-  int srcRowSize = tileWidth * 3;
-  int destRowSize = destTileWidth * 3;
-//  int srcSize = srcRowSize * tileHeight;
-  int destSize = destRowSize * destTileHeight;
-//  BYTE *pSrcEnd = pSrc + srcSize;
-  BYTE *pDestEnd = pDest + destSize;
-  int64_t y2 = 0;
-  int16_t yFree = 0;
-  while (y+y2 < 0 && y2 < tileHeight)
+  else if (y < 0)
   {
-    y2++;
+    ySrc = abs(y);
   }
-  while (y2 < tileHeight)
+  if (ySrc + y > args->ySize) return;
+
+  if (x < 0 && abs(x) > tileWidth)
   {
-    int64_t x2 = 0;
-    BYTE *pSrcB = &pSrc[y2 * srcRowSize];
-    BYTE *pDestB = &pDest[y2 * destRowSize];
-    BYTE *pSrcL2B = &pSrcL2[y2 * destRowSize];
-    int16_t xFree = 0;
-    xFree = yFreeMap[y+y2];
-    while (x+x2 < 0 && x2 < tileWidth)
+    return;
+  }
+  else if (x < 0)
+  {
+    xSrc = abs(x);
+  }
+  if (xSrc + x > args->xSize) return;
+  
+  int64_t srcRowSize = args->pSafeSrc->strideWidth; 
+  unsigned char bkgdColor = args->bkgdColor;
+  int xLimit = args->xLimit;
+  int yLimit = args->yLimit;
+  BlendSection **xFreeMap = args->xFreeMap;
+  BlendSection **yFreeMap = args->yFreeMap;
+  int64_t ySize = args->ySize;
+  int64_t xSize = args->xSize;
+  while (ySrc < tileHeight && y+ySrc < ySize)
+  {
+    xSrc = 0;
+    if (x < 0)
     {
-      pSrcB += 3;
-      pDestB += 3;
-      pSrcL2B += 3;
-      x2++;
+      xSrc = abs(x);
     }
-    while (x2 < tileWidth && x+x2 < totalXMapDiv)
+    BYTE *pSrcB = &pSrc[(ySrc * srcRowSize) + (xSrc * 3)];
+    BlendSection *xTail = yFreeMap[y+ySrc];
+    if (xTail == NULL)
     {
-      bool setFree = false;
-      if (y2 < destTileHeight) 
+      xTail = new BlendSection(0);
+      yFreeMap[y+ySrc] = xTail;
+    }
+    while (xSrc < tileWidth && x+xSrc < xSize)
+    {
+      BlendSection *yTail = xFreeMap[x+xSrc];
+      if (yTail == NULL)
       {
-        yFree = xFreeMap[x+x2];
-      }
-      else
-      {
-        yFree = xFreeMap[rowWidth+x+x2];
+        yTail = new BlendSection(0);
+        xFreeMap[x+xSrc] = yTail;
       }
       if (*pSrcB >= bkgdColor && pSrcB[1] >= bkgdColor && pSrcB[2] >= bkgdColor)
       {
-        xFree++;
-        if (xFree > tileWidth) 
+        if (xTail->getFree() == 0)
         {
-          xFree = tileWidth;
+          xTail->setStart(x+xSrc);
         }
-        yFree++;
-        if (yFree > tileHeight) 
+        xTail->incrementFree();
+        if (yTail->getFree() == 0)
         {
-          yFree = tileHeight;
+          yTail->setStart(y+ySrc);
         }
-        if (x2+1 == tileWidth && y2 < destTileHeight && 
-           (xFree >= xLimit || yFree >= yLimit))
-        {
-          int backX = xFree-1;
-          if (x2-backX<0)
-          {
-            backX = x2;
-          }
-          int copyX = backX+1;
-          if (x2 > destTileWidth)
-          {
-            copyX = (destTileWidth - (x2 - backX))+1;
-          }
-          if (copyX<=0)
-          {
-            backX=0;
-            copyX=0;
-          }
-          BYTE *pDestC = pDestB - (backX * 3);
-          BYTE *pDestD = pDestC + (copyX * 3);
-          BYTE *pSrcL2C = pSrcL2B - (backX * 3);
-          while (pDestC < pDestD && pDestC < pDestEnd)
-          {
-            *pDestC = *pSrcL2C;
-            pDestC[1] = pSrcL2C[1];
-            pDestC[2] = pSrcL2C[2];
-            pDestC += 3;
-            pSrcL2C += 3;
-          }
-          setFree = true;
-        }
-        if (y2+1 == tileHeight && x2 < destTileWidth &&
-           (xFree >= xLimit || yFree >= yLimit))
-        {
-          int backY = yFree-1;
-          if (y2-backY<0)
-          {
-            backY = y2;
-          }
-          int copyY = backY+1;
-          if (y2 > destTileHeight)
-          {
-            copyY = (destTileHeight - (y2 - backY))+1;
-          }
-          if (copyY<=0)
-          {
-            backY=0;
-            copyY=0;
-          }
-          BYTE *pDestC = pDestB - (backY * destRowSize);
-          BYTE *pDestD = pDestC + (copyY * destRowSize);
-          BYTE *pSrcL2C = pSrcL2B - (backY * destRowSize);
-          while (pDestC < pDestD && pDestC < pDestEnd)
-          {
-            *pDestC = *pSrcL2C;
-            pDestC[1] = pSrcL2C[1];
-            pDestC[2] = pSrcL2C[2];
-            pDestC += destRowSize;
-            pSrcL2C += destRowSize;
-          }
-          setFree = true;
-        }
-      }
-      else if (xFree >= xLimit || yFree >= yLimit)
-      {
-        if (x2-xFree < destTileWidth && y2 < destTileHeight)
-        {
-          int backX = xFree;
-          if (x2-backX<0)
-          {
-            backX = x2;
-          }
-          int copyX = backX;
-          if (x2 > destTileWidth)
-          {
-            copyX = destTileWidth - (x2 - backX);
-          }
-          if (copyX<=0)
-          {
-            backX=0;
-            copyX=0;
-          }
-          BYTE *pDestC = pDestB - (backX * 3);
-          BYTE *pDestD = pDestC + (copyX * 3);
-          BYTE *pSrcL2C = pSrcL2B - (backX * 3);
-          while (pDestC < pDestD && pDestC < pDestEnd)
-          {
-            *pDestC = *pSrcL2C;
-            pDestC[1] = pSrcL2C[1];
-            pDestC[2] = pSrcL2C[2];
-            pDestC += 3;
-            pSrcL2C += 3;
-          }
-        }
-        if (x2 < destTileWidth && y2-yFree < destTileHeight)
-        {
-          int backY = yFree;
-          if (y2-yFree<0)
-          {
-            backY = y2;
-          }
-          int copyY = backY;
-          if (y2 > destTileHeight)
-          {
-            copyY = destTileHeight - (y2 - backY);
-          }
-          if (copyY<=0)
-          {
-            backY=0;
-            copyY=0;
-          }
-          BYTE *pDestC = pDestB - (backY * destRowSize);
-          BYTE *pDestD = pDestC + (copyY * destRowSize);
-          BYTE *pSrcL2C = pSrcL2B - (backY * destRowSize);
-          while (pDestC < pDestD && pDestC < pDestEnd)
-          {
-            *pDestC = *pSrcL2C;
-            pDestC[1] = pSrcL2C[1];
-            pDestC[2] = pSrcL2C[2];
-            pDestC += destRowSize;
-            pSrcL2C += destRowSize;
-          }
-        }
-        xFree=0;
-        yFree=0;
+        yTail->incrementFree();
       }
       else
       {
-        xFree=0;
-        yFree=0;
-      }
-      if (setFree==false && x2 < destTileWidth && y2 < destTileHeight && pDestB < pDestEnd)
-      {
-        /*
-        *pDestB = 0;
-        pDestB[1] = 0;
-        pDestB[2] = 255;
-        */
-        *pDestB = *pSrcB;
-        pDestB[1] = pSrcB[1];
-        pDestB[2] = pSrcB[2];
-      }
-      if (rowWidth+x+x2 < totalXMap)
-      {
-        if (y2+1 == destTileHeight)
+        if (xTail->getFree() >= xLimit)
         {
-          xFreeMap[rowWidth+x+x2]=yFree;
-        }
-        if (y2 < destTileHeight) 
-        {
-          xFreeMap[x+x2]=yFree;
+          BlendSection* xLast = xTail;
+          xTail = new BlendSection(xSrc + x);
+          xTail->setPrevious(xLast);
+          xLast->setNext(xTail);
+          yFreeMap[y+ySrc] = xTail;
         }
         else
         {
-          xFreeMap[rowWidth+x+x2]=yFree;
+          xTail->clearFree();
         }
-        if (y+y2 < totalYMap && x2 < destTileWidth)
+        if (yTail->getFree() >= yLimit)
         {
-          yFreeMap[y+y2]=xFree;
+          BlendSection* yLast = yTail;
+          yTail = new BlendSection(ySrc + y);
+          yTail->setPrevious(yLast);
+          yLast->setNext(yTail);
+          xFreeMap[x+xSrc] = yTail;
+        }
+        else
+        {
+          yTail->clearFree();
         }
       }
+      xSrc++;
       pSrcB += 3;
-      pDestB += 3;
-      pSrcL2B += 3;
-      x2++;
     }
-    y2++;
+    ySrc++;
   }
 }
 
+
+void blendLevelsByBkgd(BlendBkgdArgs *args)
+{
+  int64_t tileWidth = args->pSafeSrc->width;
+  int64_t tileHeight = args->pSafeSrc->height;
+  int64_t destTileWidth=args->pSafeDest->width;
+  int64_t destTileHeight=args->pSafeDest->height;
+  assert(args->pSafeSrcL2->width == destTileWidth);
+  assert(args->pSafeSrcL2->height == destTileHeight);
+  int64_t xSize = args->xSize;
+  int64_t ySize = args->ySize;
+
+  int64_t x = args->x;
+  int64_t y = args->y;
+  int64_t xSrc=0;
+  int64_t ySrc=0;
+  
+  if (y < 0 && abs(y) > tileHeight)
+  {
+    return;
+  }
+  else if (y < 0)
+  {
+    ySrc = abs(y);
+  }
+  if (ySrc + y > ySize) return;
+
+  if (x < 0 && abs(x) > tileWidth)
+  {
+    return;
+  }
+  else if (x < 0)
+  {
+    xSrc = abs(x);
+  }
+  if (xSrc + x > xSize) return;
+
+  double xFactor = args->xFactor;
+  double yFactor = args->yFactor;
+ 
+  int xLimit = args->xLimit;
+  int yLimit = args->yLimit;
+  int64_t xEndA = round((x + tileWidth) * xFactor);
+  if (xEndA > xSize) xEndA = xSize;
+  int64_t yEndA = round((y + tileHeight) * yFactor);
+  if (yEndA > ySize) yEndA = ySize;
+  int64_t xStartA = round((x + xSrc) * xFactor);
+  int64_t yStartA = round((y + ySrc) * yFactor);
+  int64_t xStartB, xFreeB, xEndB;
+  BlendSection** yFreeMap = args->yFreeMap;
+  BlendSection** xFreeMap = args->xFreeMap;
+  while (yStartA < yEndA)
+  {
+    BlendSection *xTail = yFreeMap[yStartA];
+    ySrc = floor(yStartA / yFactor) - y;
+    while (xTail != NULL) 
+    {
+      xStartB = xTail->getStart();
+      xFreeB = xTail->getFree();
+      xEndB = xStartB + xFreeB;
+      if (xFreeB >= xLimit && 
+         ((xStartB <= xStartA && xEndB >= xStartA) || 
+          (xStartB >= xStartA && xEndA >= xStartB)
+         ))
+      {
+        int64_t xStartC = floor(xStartB / xFactor);
+        if (xStartC < x)
+        {
+          xStartC = x;
+        }
+        else if (xStartC > x+tileWidth)
+        {
+          xStartC = x+tileWidth;
+        }
+        int64_t xEndC = ceil(xEndB / xFactor);
+        if (xEndC > x+tileWidth)
+        {
+          xEndC = x+tileWidth;
+        }
+        int64_t xCopy = xEndC - xStartC;
+        xSrc = xStartC - x;
+        safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, xCopy, 1); // copy just one row
+      }
+      xTail = xTail->getPrevious();
+    }
+    yStartA++;
+  }
+
+  ySrc = 0;
+  if (y < 0)
+  {
+    ySrc = abs(y);
+  }
+  xSrc = 0;
+  if (x < 0)
+  {
+    xSrc = abs(x);
+  }
+  yStartA = round((y + ySrc) * yFactor);
+  xStartA = round((x + xSrc) * xFactor);
+  int64_t yStartB, yFreeB, yEndB;
+  while (xStartA < xEndA)
+  {
+    BlendSection *yTail = xFreeMap[xStartA];
+    xSrc = floor(xStartA / xFactor) - x;
+    while (yTail != NULL) 
+    {
+      yStartB = yTail->getStart();
+      yFreeB = yTail->getFree();
+      yEndB = yStartB + yFreeB;
+      if (yFreeB >= yLimit && 
+         ((yStartB <= yStartA && yEndB >= yStartA) || 
+          (yStartB >= yStartA && yEndA >= yStartB)))
+      {
+        int64_t yStartC = floor(yStartB / yFactor);
+        if (yStartC < y)
+        {
+          yStartC = y;
+        }
+        else if (yStartC > y+tileHeight)
+        {
+          yStartC = y+tileHeight;
+        }
+        int64_t yEndC = ceil(yEndB / yFactor);
+        if (yEndC > y+tileHeight)
+        {
+          yEndC = y+tileHeight;
+        }
+        int64_t yCopy = yEndC - yStartC;
+        ySrc = yStartC - y;
+        safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, 1, yCopy); // copy just one vertical row
+      }
+      yTail = yTail->getPrevious();
+    }
+    xStartA++;
+  }
+}
 

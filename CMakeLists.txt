@@ -5,9 +5,9 @@ find_package( TIFF REQUIRED )
 find_package( OpenCV REQUIRED )
 
 set(ENABLE_EXPORTS, true)
-#set (CMAKE_CXX_STANDARD 11)
-#set (CMAKE_CXX_EXTENSIONS OFF)
-#set (CMAKE_CXX_STANDARD_REQUIRED YES)
+set (CMAKE_CXX_STANDARD 11)
+set (CMAKE_CXX_EXTENSIONS OFF)
+set (CMAKE_CXX_STANDARD_REQUIRED YES)
 
 if (${JPEG_FOUND} MATCHES false)
   message(FATAL_ERROR "libjpeg not found. Please install libjpeg-turbo development library or similiar. Cannot continue!")
@@ -18,6 +18,7 @@ if (${TIFF_FOUND} MATCHES false)
 endif()
 
 set( MAIN_SRC
+  src/safebmp.cc
   src/olyvslideconv.cc
   src/jpgcachesupport.cc
   src/imagesupport.cc
@@ -35,6 +36,7 @@ set( MAIN_HEADERS
   include/jpgsupport.h
   include/jpgcachesupport.h
   include/tiffsupport.h
+  include/blendbkgd.h
 )
 
 set( INFO_SRC

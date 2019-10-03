@@ -757,12 +757,12 @@ bool CompositeSlide::open(const std::string& srcFileName, bool setGrayScale, boo
       // missing lines problem occurs in rounding here
       double xPixel=((double)(pConf->mxMax - pConf->mxyArr[i].mx)/(double)pConf->mxAdj);
       int64_t xPixelInt=(int64_t) round(xPixel);
-      if (xPixelInt>0) xPixelInt--;
+      //if (xPixelInt>0) xPixelInt--;
       pConf->mxyArr[i].mxPixel=xPixelInt; // previous use lround here
       
       double yPixel=((double)(pConf->myMax - pConf->mxyArr[i].my)/(double)pConf->myAdj);
       int64_t yPixelInt=(int64_t) round(yPixel);
-      if (yPixelInt>0) yPixelInt--;
+      //if (yPixelInt>0) yPixelInt--;
       pConf->mxyArr[i].myPixel=yPixelInt; // previous use lround here
       
       logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixelInt << " y=" << yPixelInt << std::endl;
@@ -824,10 +824,10 @@ bool CompositeSlide::open(const std::string& srcFileName, bool setGrayScale, boo
         xPixel += bestXOffset1;
         yPixel += bestYOffset1;
       }
-      pConf->mxyArr[i].mxPixel=(int64_t)xPixel;
-      pConf->mxyArr[i].myPixel=(int64_t)yPixel;
-      pConf->mxSortedArr[i].mxPixel=(int64_t)xPixel;
-      pConf->mxSortedArr[i].myPixel=(int64_t)yPixel;
+      pConf->mxyArr[i].mxPixel=(int64_t)round(xPixel);
+      pConf->mxyArr[i].myPixel=(int64_t)round(yPixel);
+      pConf->mxSortedArr[i].mxPixel=(int64_t)round(xPixel);
+      pConf->mxSortedArr[i].myPixel=(int64_t)round(yPixel);
       
       logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixel << " y=" << yPixel << std::endl;
     }
@@ -923,17 +923,39 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
 
       double xPixel=((double)((double)(pLowerConf->mxMax - pLowerConf->mxyArr[i].mx)/pLowerConf->mxAdj)/xZoomOut);
       double yPixel=((double)((double)(pLowerConf->myMax - pLowerConf->mxyArr[i].my)/pLowerConf->myAdj)/yZoomOut);
-      int64_t xPixelInt = (int64_t) xPixel;
-      if (xPixelInt > 0) xPixelInt--;
-      int64_t yPixelInt = (int64_t) yPixel;
-      if (yPixelInt > 0) yPixelInt--;
+      int64_t xPixelInt = (int64_t) round(xPixel);
+      //if (xPixelInt > 0) xPixelInt--;
+      int64_t yPixelInt = (int64_t) round(yPixel);
+      //if (yPixelInt > 0) yPixelInt--;
       // std::cout << "xPixel=" << xPixelInt << " yPixel=" << yPixelInt << " scaledSize.width=" << scaledSize.width << " scaledSize.height=" << scaledSize.height << std::endl;
+      int64_t cols = imgScaled.cols;
+      if (xPixelInt + cols > pImgComplete1->cols)
+      {
+        cols -= (xPixelInt + cols) - pImgComplete1->cols;
+      }
+      int64_t rows = imgScaled.rows;
+      if (yPixelInt + rows > pImgComplete1->rows)
+      {
+        rows -= (yPixelInt + rows) - pImgComplete1->rows;
+      }
+      //if (xPixelInt + imgPart.cols <= pImgComplete2->cols && yPixelInt + imgPart.rows <= pImgComplete2->rows)
+      if (cols > 0 && rows > 0)
+      {
+        cv::Rect roi(0, 0, cols, rows);
+        cv::Mat srcRoi(imgScaled, roi);
+        cv::Rect roi2(xPixelInt, yPixelInt, cols, rows);
+        cv::Mat destRoi(*pImgComplete1, roi2); 
+        srcRoi.copyTo(destRoi);
+        srcRoi.release();
+        destRoi.release();
+      }
+      /*
       if (xPixelInt + scaledSize.width <= pImgComplete1->cols && yPixelInt + scaledSize.height <= pImgComplete1->rows)
       {
         cv::Mat imgRoi(*pImgComplete1, cv::Rect(xPixelInt, yPixelInt, (int64_t)scaledSize.width, (int64_t)scaledSize.height)); 
         imgScaled.copyTo(imgRoi);
         imgRoi.release();
-      }
+      }*/
       else
       {
         std::cerr << "Warning: ROI outside of image boundaries: xPixel: " << xPixelInt << " width: " << scaledSize.width << " > " << pImgComplete1->cols;
@@ -952,17 +974,31 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     cv::Mat imgPart = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
     double xPixel=((double)(pHigherConf->mxMax - pHigherConf->mxyArr[i].mx)/(double)pHigherConf->mxAdj);
     double yPixel=((double)(pHigherConf->myMax - pHigherConf->mxyArr[i].my)/(double)pHigherConf->myAdj);
-    int64_t xPixelInt = (int64_t) xPixel;
-    if (xPixelInt > 0) xPixelInt--;
-    int64_t yPixelInt = (int64_t) yPixel;
-    if (yPixelInt > 0) yPixelInt--;
+    int64_t xPixelInt = (int64_t) round(xPixel);
+    //if (xPixelInt > 0) xPixelInt--;
+    int64_t yPixelInt = (int64_t) round(yPixel);
+    //if (yPixelInt > 0) yPixelInt--;
     //std::cout << "xPixel=" << xPixelInt << " yPixel=" << yPixelInt << " width=" << imgPart.cols << " height=" << imgPart.rows << std::endl;
-    if (xPixelInt + imgPart.cols <= pImgComplete2->cols && yPixelInt + imgPart.rows <= pImgComplete2->rows)
+    int64_t cols = imgPart.cols;
+    if (xPixelInt + cols > pImgComplete2->cols)
     {
-      cv::Rect roi(xPixelInt, yPixelInt, imgPart.cols, imgPart.rows);
-      cv::Mat imgRoi = (*pImgComplete2)(roi); 
-      imgPart.copyTo(imgRoi);
-      imgRoi.release();
+      cols -= (xPixelInt + cols) - pImgComplete2->cols;
+    }
+    int64_t rows = imgPart.rows;
+    if (yPixelInt + rows > pImgComplete2->rows)
+    {
+      rows -= (yPixelInt + rows) - pImgComplete2->rows;
+    }
+    //if (xPixelInt + imgPart.cols <= pImgComplete2->cols && yPixelInt + imgPart.rows <= pImgComplete2->rows)
+    if (cols > 0 && rows > 0)
+    {
+      cv::Rect roi(0, 0, cols, rows);
+      cv::Mat srcRoi(imgPart, roi);
+      cv::Rect roi2(xPixelInt, yPixelInt, cols, rows);
+      cv::Mat destRoi(*pImgComplete2, roi2); 
+      srcRoi.copyTo(destRoi);
+      srcRoi.release();
+      destRoi.release();
     }
     else
     {

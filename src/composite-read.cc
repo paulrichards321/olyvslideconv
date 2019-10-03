@@ -155,23 +155,23 @@ bool CompositeSlide::read(int64_t x, int64_t y, int64_t width, int64_t height, b
 }
 
 
-BYTE* CompositeSlide::allocate(int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale)
+bool CompositeSlide::allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale)
 {
   if (mValidObject==false || level<0 || level > (int64_t) mConf.size() || mConf[level]->mfound==false)
   {
-    return 0;
+    return false;
   }
   int64_t actualWidth=mConf[level]->mtotalWidth;
   int64_t actualHeight=mConf[level]->mtotalHeight;
   if (x>actualWidth || y>actualHeight)
   {
     std::cerr << "x or y out of bounds: x=" << x << " y=" << y;
-    return 0;
+    return false;
   }
   if (width <= 0 || height <= 0)
   {
     std::cerr << "width or height out of bounds: width=" << width << " height=" << height;
-    return 0;
+    return false;
   } 
   int samplesPerPixel = 3;
   if (setGrayScale || mGrayScale)
@@ -197,11 +197,7 @@ BYTE* CompositeSlide::allocate(int level, int64_t x, int64_t y, int64_t width, i
   {
     std::cout << "allocating " << (bmpSize / (1024 * 1024)) << " megabytes in memory." << std::endl;
   }
-  BYTE *pBmp=new BYTE[bmpSize];
-  if (pBmp)
-  {
-    memset(pBmp, mbkgColor, bmpSize);
-  }
-  return pBmp;
+  BYTE* data = safeBmpAlloc2(pBmp, maxWidth, maxHeight);
+  return (data ? true : false);
 }
  
