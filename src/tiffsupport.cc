@@ -173,13 +173,22 @@ bool Tiff::setDescription(std::string& strAttributes, int baseWidth, int baseHei
   int retval=0;
   if (mtif)
   {
-    oss << strAttributes << "\r\n";
+    oss << "Aperio Image" << "\r\n";
     oss << baseWidth << "x" << baseHeight << " ";
     if (mtileWidth > 0 && mtileHeight > 0)
     {
       oss << "(" << mtileWidth << "x" << mtileHeight << ") ";
     }
-    oss << "-> " << mactualWidth << "x" << mactualHeight << " JPEG/RGB Q=" << mquality;
+    oss << "-> " << mactualWidth << "x" << mactualHeight;
+    if (mtileWidth > 0 && mtileHeight > 0)
+    {
+      oss << " JPEG/RGB Q=" << mquality;
+    }
+    else
+    {
+      oss << " - ";
+    }
+    oss << strAttributes;
     std::string attr = oss.str();
     retval=TIFFSetField(mtif, TIFFTAG_IMAGEDESCRIPTION, attr.c_str());
   }

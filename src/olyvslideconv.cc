@@ -659,7 +659,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.grabWidthL2=l.srcTotalWidthL2;
     l.grabHeightL2=l.srcTotalHeightL2;
   }
-  if ((scanBkgd || l.readOkL2) && tiled && mBlendByRegion==false)
+  if ((scanBkgd || l.readOkL2) && mBlendByRegion==false)
   {
     l.xBlendFactor = l.magnifyX; 
     l.yBlendFactor = l.magnifyY;
@@ -752,14 +752,17 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       totalMag=40;
     }
     std::ostringstream oss;
-    oss << "Aperio Image|AppMag=" << totalMag;
-    if (slide->getTotalZLevels() > 1 && mZSteps == 1) 
+    if (mBaseLevel==olympusLevel || tiled==false)
     {
-      oss << "|TotalDepth = " << slide->getTotalZLevels() << "\0";
-    }
-    else if (slide->getTotalZLevels() > 1 && mZSteps > 1)
-    {
-      oss << "|OffsetZ = " << (mZSteps-1) << "\0";
+      oss << "|AppMag=" << totalMag;
+      if (slide->getTotalZLevels() > 1 && mZSteps == 1) 
+      {
+        oss << "|TotalDepth = " << slide->getTotalZLevels() << "\0";
+      }
+      else if (slide->getTotalZLevels() > 1 && mZSteps > 1)
+      {
+        oss << "|OffsetZ = " << (mZSteps-1) << "\0";
+      }
     }
     std::string strAttributes=oss.str();
     if (mTif->setAttributes(3, 8, l.destTotalWidth, l.destTotalHeight, (l.tiled==true ? l.finalOutputWidth : 0), (l.tiled==true ? l.finalOutputHeight : 0), 1, l.quality)==false || mTif->setDescription(strAttributes, mBaseTotalWidth, mBaseTotalHeight)==false)
@@ -1236,7 +1239,9 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool ble
     if (slide->checkLevel(mBaseLevel))
     {
       mBaseTotalWidth = slide->getActualWidth(mBaseLevel);
+      mBaseTotalWidth = ceil((double) mBaseTotalWidth / (double) 256.0) * 256;
       mBaseTotalHeight = slide->getActualHeight(mBaseLevel);
+      mBaseTotalHeight = ceil((double) mBaseTotalHeight / (double) 256.0) * 256;
       break;
     }
   }
