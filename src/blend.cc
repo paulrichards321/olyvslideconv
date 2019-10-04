@@ -5,21 +5,27 @@
 #include "composite.h"
 #include "blendbkgd.h"
 
-void CompositeSlide::blendLevelsByRegion(BYTE *pDest, BYTE *pSrc, int64_t x, int64_t y, int64_t width, int64_t height, int tileWidth, int tileHeight, double xScaleOut, double yScaleOut, int srcLevel)
+void CompositeSlide::blendLevelsByRegion(safeBmp* pSafeDest, safeBmp* pSafeSrc, int64_t x, int64_t y, double xScaleOut, double yScaleOut, int srcLevel)
 {
   if (checkLevel(srcLevel)==false) return;
   IniConf *pLowerConf=mConf[srcLevel];
   int64_t fileWidth=pLowerConf->mpixelWidth;
   int64_t fileHeight=pLowerConf->mpixelHeight;
-  int64_t tileSize = tileWidth * tileHeight * 3;
+  int64_t tileWidth=pSafeDest->width;
+  int64_t tileHeight=pSafeDest->height;
 
+  if (pSafeSrc->width < tileWidth)
+    tileWidth = pSafeSrc->width;
+  if (pSafeSrc->height < tileHeight)
+    tileHeight = pSafeSrc->height;
+    
   for (int64_t tileNum=0; tileNum<pLowerConf->mtotalTiles; tileNum++)
   {
     int64_t xCurrentPos=(int64_t) pLowerConf->mxyArr[tileNum].mxPixel;
     int64_t yCurrentPos=(int64_t) pLowerConf->mxyArr[tileNum].myPixel;
     // first check if the x y coordinates are within the region of the bitmap
-    if (((x<xCurrentPos && x+width>xCurrentPos) || (x>=xCurrentPos && x<xCurrentPos+fileWidth)) &&
-       ((y<yCurrentPos && y+height>yCurrentPos) || (y>=yCurrentPos && y<yCurrentPos+fileHeight)))
+    if (((x<xCurrentPos && x+tileWidth>xCurrentPos) || (x>=xCurrentPos && x<xCurrentPos+fileWidth)) &&
+       ((y<yCurrentPos && y+tileHeight>yCurrentPos) || (y>=yCurrentPos && y<yCurrentPos+fileHeight)))
     {
       int64_t y2=yCurrentPos;
       if (y2 < y)
@@ -28,9 +34,9 @@ void CompositeSlide::blendLevelsByRegion(BYTE *pDest, BYTE *pSrc, int64_t x, int
       }
       y2 = y2 - y;
       int64_t y3=yCurrentPos + fileHeight;
-      if (y3 > y+height)
+      if (y3 > y+tileHeight)
       {
-        y3 = y + height;
+        y3 = y + tileHeight;
       }
       y3 = y3 - y;
       int64_t x2=xCurrentPos;
@@ -40,26 +46,30 @@ void CompositeSlide::blendLevelsByRegion(BYTE *pDest, BYTE *pSrc, int64_t x, int
       }
       x2 = x2 - x;
       int64_t x3=xCurrentPos + fileWidth;
-      if (x3 > x+width)
+      if (x3 > x+tileWidth)
       {
-        x3 = x + width;
+        x3 = x + tileWidth;
       }
       x3 = x3 - x;
-      int64_t yMax = (int64_t) ceil((double) y3 * yScaleOut);
-      if (yMax > tileHeight) 
+      int64_t yCopy = (int64_t) ceil((double) y3 * yScaleOut);
+      if (yCopy > tileHeight) 
       {
-        yMax=tileHeight;
+        yCopy=tileHeight;
       }
-      int64_t offset = (int64_t) floor((double) x2 * xScaleOut) * 3;
-      int64_t rowSize2 = (int64_t) ceil((double) (x3-x2) * xScaleOut) * 3;
-      if (offset > tileWidth * 3)
+      int64_t xOffset = (int64_t) floor((double) x2 * xScaleOut);
+      int64_t xCopy = (int64_t) ceil((double) (x3-x2) * xScaleOut);
+      if (xOffset > tileWidth)
       {
         continue;
       }
-      if (offset + rowSize2 > tileWidth*3)
+      if (xOffset + xCopy > tileWidth)
       {
-        rowSize2 = (tileWidth * 3) - offset;
+        xCopy = tileWidth - xOffset;
       }
+      int64_t yOffset = (int64_t) round(y2 * yScaleOut);
+      safeBmpCpy(pSafeDest, xOffset, yOffset, pSafeSrc, xOffset, yOffset, xCopy, yCopy);
+
+      /*
       for (int64_t y4 = (int64_t) round(y2 * yScaleOut); y4 < yMax; y4++)
       {
         int64_t offset2=(y4 * tileWidth * 3)+offset;
@@ -67,7 +77,7 @@ void CompositeSlide::blendLevelsByRegion(BYTE *pDest, BYTE *pSrc, int64_t x, int
         {
           memcpy(&pDest[offset2], &pSrc[offset2], rowSize2);
         }
-      }
+      }*/
     }
   }
 }
@@ -184,10 +194,6 @@ void blendLevelsByBkgd(BlendBkgdArgs *args)
 {
   int64_t tileWidth = args->pSafeSrc->width;
   int64_t tileHeight = args->pSafeSrc->height;
-  int64_t destTileWidth=args->pSafeDest->width;
-  int64_t destTileHeight=args->pSafeDest->height;
-  assert(args->pSafeSrcL2->width == destTileWidth);
-  assert(args->pSafeSrcL2->height == destTileHeight);
   int64_t xSize = args->xSize;
   int64_t ySize = args->ySize;
 
@@ -259,6 +265,7 @@ void blendLevelsByBkgd(BlendBkgdArgs *args)
           xEndC = x+tileWidth;
         }
         int64_t xCopy = xEndC - xStartC;
+        if (xCopy == 0 && xStartC < x+tileWidth && floor(xEndB / xFactor) >= x) xCopy = 1;
         xSrc = xStartC - x;
         safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, xCopy, 1); // copy just one row
       }
@@ -308,6 +315,7 @@ void blendLevelsByBkgd(BlendBkgdArgs *args)
           yEndC = y+tileHeight;
         }
         int64_t yCopy = yEndC - yStartC;
+        if (yCopy == 0 && yStartC < y+tileHeight && floor(yEndB / yFactor) >= y) yCopy = 1;
         ySrc = yStartC - y;
         safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, 1, yCopy); // copy just one vertical row
       }
