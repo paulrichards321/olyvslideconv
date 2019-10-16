@@ -113,7 +113,7 @@ make install
 # the location of your cmake.exe (see below for example) and use your 
 # version of Visual Studio and architecture (Visual Studio 2015 Win64 
 # shown below) and your version of MSBuild and type:
-cd libjpeg-turbo-1.5.3
+cd libjpeg-turbo
 mkdir build
 cd build
 "C:\Program Files\cmake\bin\cmake.exe" -G "Visual Studio 14 2015 Win64" ..
@@ -130,9 +130,9 @@ cd build
 # jpeg headers and resulting built jpeg library directory. You can search 
 # JPEG_SUPPORT and remove the # (pound sign) in front of the JPEG = lines:
 JPEG_SUPPORT = 1
-JPEGDIR = ../libjpeg-turbo
-JPEG_INCLUDE = -I../libjpeg-turbo_dist -I$(JPEGDIR)
-JPEG_LIB = ../libjpeg-turbo_dist/Debug/turbojpeg-static.lib
+JPEGDIR = c:\source\libjpeg-turbo
+JPEG_INCLUDE = -Ic:\source\libjpeg-turbo\build -I$(JPEGDIR)
+JPEG_LIB = c:\source\libjpeg-turbo\build\Debug\turbojpeg-static.lib
 
 # After you edited the above four lines, then you can build libtiff using 
 # nmake. Open a command window and run the right vcvars bat file for your 
@@ -204,7 +204,7 @@ git checkout 3.4.3
 cd ..
 mkdir opencv-build
 cd opencv-build
-cmake3 -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ../opencv/
+cmake3 -D CMAKE_BUILD_TYPE=RELEASE -D OPENCV_GENERATE_PKGCONFIG -D CMAKE_INSTALL_PREFIX=/usr/local ../opencv/
 make
 sudo make install
 

@@ -427,11 +427,7 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   
   if (l.finalOutputWidth != l.finalOutputWidth2 || l.finalOutputHeight != l.finalOutputHeight2)
   {
-    if (safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2)==NULL)
-    {
-      std::cerr << "Out of memory! @ olyvslideconc.cc:432" << std::endl;
-      exit(2);
-    }
+    assert(safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2));
     safeBmpByteSet(&l.safeScaledL2Mini2, l.bkgdColor);
     safeBmpCpy(&l.safeScaledL2Mini2, 0, 0, &l.safeScaledL2Mini, 0, 0, l.finalOutputWidth, l.finalOutputHeight);
     safeBmpInit(&l.safeScaledL2Mini, l.safeScaledL2Mini2.data, l.finalOutputWidth2, l.finalOutputHeight2);
@@ -891,12 +887,9 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         l.grabHeightRead = round(grabHeightReadDec);
         
         safeBmpClear(&l.bitmap1);
+        safeBmpClear(&l.safeScaledL2Mini2);
         bool allocSuccess = slide->allocate(&l.bitmap1, l.olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
-        if (allocSuccess == false)
-        {
-          std::cerr << "Out of Memory! @ olyvslideconv.cc:897" << std::endl;
-          exit(1);
-        }
+        assert(allocSuccess);
         safeBmpByteSet(&l.bitmap1, l.bkgdColor);
         l.pBitmapSrc = &l.bitmap1;
         
@@ -928,7 +921,6 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         {
           std::string errMsg;
           processSrcTile(l);
-          safeBmpClear(&l.safeScaledL2Mini2);
           if (l.readOkL2)
           {
             blendL2WithSrc(l);  
