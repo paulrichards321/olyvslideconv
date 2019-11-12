@@ -247,159 +247,157 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
         c = iniFile.get();
         if (c == 0x0A || c == EOF) break;
         if (c != 0x0D && c != ' ' && c != '\t') line += (char) c;
-        } while (iniFile.eof()==false && iniFile.good());
+      } while (iniFile.eof()==false && iniFile.good());
 
-        if (line.length()>=3)
+      if (line.length()>=3)
+      {
+        size_t rpos = line.find(']');
+        if (line[0]=='[' && rpos != std::string::npos)
         {
-          size_t rpos = line.find(']');
-          if (line[0]=='[' && rpos != std::string::npos)
+          if (xFound && yFound && nameFound)
           {
-            if (xFound && yFound && nameFound)
+            pConf->mxyArr.push_back(jpgxy);
+          }
+          std::string chunkName=line.substr(1, rpos-1);
+          //gchar* foldedChunkName = g_utf8_casefold((gchar*)chunkName.c_str(), chunkName.length());
+          if (strcasecmp(headerStr.c_str(), chunkName.c_str())==0)
+          {
+            //    std::cout << "In header!" << std::endl;
+            jpgxy.mBaseFileName.clear();
+            nameFound = false;
+            header = true;
+          }
+          else
+          {
+            //logFile << "Input Dir=" << inputDir << std::endl;
+            jpgxy.mBaseFileName = inputDir;
+            jpgxy.mBaseFileName += separator();
+            jpgxy.mBaseFileName += chunkName;
+            char location[2][4] = { "_u", "_d" };
+            struct stat fileStat;
+            for (int zSplit=0; zSplit < 2; zSplit++)
             {
-              pConf->mxyArr.push_back(jpgxy);
-            }
-            std::string chunkName=line.substr(1, rpos-1);
-            //gchar* foldedChunkName = g_utf8_casefold((gchar*)chunkName.c_str(), chunkName.length());
-            if (strcasecmp(headerStr.c_str(), chunkName.c_str())==0)
-            {
-              //    std::cout << "In header!" << std::endl;
-              jpgxy.mBaseFileName.clear();
-              nameFound = false;
-              header = true;
-            }
-            else
-            {
-              //logFile << "Input Dir=" << inputDir << std::endl;
-              jpgxy.mBaseFileName = inputDir;
-              jpgxy.mBaseFileName += separator();
-              jpgxy.mBaseFileName += chunkName;
-              char location[2][4] = { "_u", "_d" };
-              struct stat fileStat;
-              for (int zSplit=0; zSplit < 2; zSplit++)
+              for (int zLevel=0; zLevel<4; zLevel++)
               {
-                for (int zLevel=0; zLevel<4; zLevel++)
+                std::ostringstream nameStream;
+                nameStream << jpgxy.mBaseFileName << location[zSplit] << (zLevel+1) << ".jpg";
+                jpgxy.mFileName[zSplit][zLevel] = nameStream.str();
+                if (stat(jpgxy.mFileName[zSplit][zLevel].c_str(), &fileStat)==0)
                 {
-                  std::ostringstream nameStream;
-                  nameStream << jpgxy.mBaseFileName << location[zSplit] << (zLevel+1) << ".jpg";
-                  jpgxy.mFileName[zSplit][zLevel] = nameStream.str();
-                  if (stat(jpgxy.mFileName[zSplit][zLevel].c_str(), &fileStat)==0)
-                  {
-                    pConf->mzStackExists[zSplit][zLevel] = true;
-                    jpgxy.mzStack[zSplit][zLevel] = true;
-                  }
-                  else
-                  {
-                    jpgxy.mzStack[zSplit][zLevel] = false;
-                  }
+                  pConf->mzStackExists[zSplit][zLevel] = true;
+                  jpgxy.mzStack[zSplit][zLevel] = true;
+                }
+                else
+                {
+                  jpgxy.mzStack[zSplit][zLevel] = false;
                 }
               }
-              jpgxy.mBaseFileName += ".jpg";
-              nameFound = true;
-              header = false;
-              //logFile << "Filename=" << jpgxy.fileName << std::endl;
             }
-            //g_object_unref(foldedHeaderName);
-            xFound = false;
-            yFound = false;
+            jpgxy.mBaseFileName += ".jpg";
+            nameFound = true;
+            header = false;
+            //logFile << "Filename=" << jpgxy.fileName << std::endl;
           }
-          if (header)
+          //g_object_unref(foldedHeaderName);
+          xFound = false;
+          yFound = false;
+        }
+        if (header)
+        {
+          size_t widthPos=line.find(iImageWidth);
+          if (widthPos != std::string::npos && widthPos+iImageWidth.length()+1 < line.length())
           {
-            size_t widthPos=line.find(iImageWidth);
-            if (widthPos != std::string::npos && widthPos+iImageWidth.length()+1 < line.length())
-            {
-              std::string width = line.substr(widthPos+iImageWidth.length()+1);
-              pConf->mpixelWidth=atoi(width.c_str());
-            }
-            size_t heightPos=line.find(iImageHeight);
-            if (heightPos != std::string::npos && heightPos+iImageHeight.length()+1 < line.length())
-            {
-              std::string height = line.substr(heightPos+iImageHeight.length()+1);
-              pConf->mpixelHeight=atoi(height.c_str());
-            }
-            size_t xStagePos=line.find(lXStageRef);
-            if (xStagePos != std::string::npos && xStagePos+lXStageRef.length()+1<line.length())
-            {
-              std::string xStageSubStr = line.substr(xStagePos+lXStageRef.length()+1);
-              pConf->mxAxis=atoi(xStageSubStr.c_str());
-              //xAxis=pConf->mxAxis;
-            //  logFile << "!!xAxis " << pConf->xAxis << std::endl;
-            }
-            size_t yStagePos=line.find(lYStageRef);
-            if (yStagePos != std::string::npos && yStagePos+lYStageRef.length()+1<line.length())
-            {
-              std::string yStageSubStr = line.substr(yStagePos+lYStageRef.length()+1);
-              pConf->myAxis=atoi(yStageSubStr.c_str());
-              //yAxis=pConf->myAxis;
-            //  logFile << "!!yAxis " << pConf->yAxis << std::endl;
-            }
-            size_t yStepPos = line.find(lYStepSize);
-            if (yStepPos != std::string::npos && yStepPos+lYStepSize.length()+1<line.length())
-            {
-              std::string yStepSubStr = line.substr(yStepPos+lYStepSize.length()+1);
-              pConf->myStepSize = atoi(yStepSubStr.c_str());
+            std::string width = line.substr(widthPos+iImageWidth.length()+1);
+            pConf->mpixelWidth=atoi(width.c_str());
+          }
+          size_t heightPos=line.find(iImageHeight);
+          if (heightPos != std::string::npos && heightPos+iImageHeight.length()+1 < line.length())
+          {
+            std::string height = line.substr(heightPos+iImageHeight.length()+1);
+            pConf->mpixelHeight=atoi(height.c_str());
+          }
+          size_t xStagePos=line.find(lXStageRef);
+          if (xStagePos != std::string::npos && xStagePos+lXStageRef.length()+1<line.length())
+          {
+            std::string xStageSubStr = line.substr(xStagePos+lXStageRef.length()+1);
+            pConf->mxAxis=atoi(xStageSubStr.c_str());
+            //xAxis=pConf->mxAxis;
+          //  logFile << "!!xAxis " << pConf->xAxis << std::endl;
+          }
+          size_t yStagePos=line.find(lYStageRef);
+          if (yStagePos != std::string::npos && yStagePos+lYStageRef.length()+1<line.length())
+          {
+            std::string yStageSubStr = line.substr(yStagePos+lYStageRef.length()+1);
+            pConf->myAxis=atoi(yStageSubStr.c_str());
+            //yAxis=pConf->myAxis;
+          //  logFile << "!!yAxis " << pConf->yAxis << std::endl;
+          }
+          size_t yStepPos = line.find(lYStepSize);
+          if (yStepPos != std::string::npos && yStepPos+lYStepSize.length()+1<line.length())
+          {
+            std::string yStepSubStr = line.substr(yStepPos+lYStepSize.length()+1);
+            pConf->myStepSize = atoi(yStepSubStr.c_str());
 //              logFile << " fileNum=" << fileNum << " yStepSize=" << pConf->myStepSize << std::endl;
-              std::cout << "Exact y step measurements found for level " << fileNum << std::endl;
-            }
-            size_t xStepPos = line.find(lXStepSize);
-            if (xStepPos != std::string::npos && xStepPos+lXStepSize.length()+1<line.length())
-            {
-              std::string xStepSubStr = line.substr(xStepPos+lXStepSize.length()+1);
-              pConf->mxStepSize = atoi(xStepSubStr.c_str());
+            std::cout << "Exact y step measurements found for level " << fileNum << std::endl;
+          }
+          size_t xStepPos = line.find(lXStepSize);
+          if (xStepPos != std::string::npos && xStepPos+lXStepSize.length()+1<line.length())
+          {
+            std::string xStepSubStr = line.substr(xStepPos+lXStepSize.length()+1);
+            pConf->mxStepSize = atoi(xStepSubStr.c_str());
 //              logFile << " fileNum=" << fileNum << " xStepSize=" << pConf->mxStepSize << std::endl;
-              std::cout << "Exact x step measurements found for level " << fileNum << std::endl;
-            }
-            size_t xOffsetPos = line.find(lXOffset);
-            if (xOffsetPos != std::string::npos && xOffsetPos+lXOffset.length()+1<line.length())
-            {
-              //std::string xOffsetSubStr = line.substr(xOffsetPos+lXOffset.length()+1);
-              //xOffset = atoi(xOffsetSubStr.c_str());
-            }
-            size_t yOffsetPos = line.find(lYOffset);
-            if (yOffsetPos != std::string::npos && yOffsetPos+lYOffset.length()+1<line.length())
-            {
-              //std::string yOffsetSubStr = line.substr(yOffsetPos+lYOffset.length()+1);
-              //yOffset = atoi(yOffsetSubStr.c_str());
-            }
-            size_t dMagPos = line.find(dMagnification);
-            if (dMagPos != std::string::npos && dMagPos+dMagnification.length()+1<line.length())
-            {
-              std::string dMagSubStr = line.substr(dMagPos+dMagnification.length()+1);
-              mmagnification = atoi(dMagSubStr.c_str());
-            }
-            size_t qualityPos = line.find(ImageQuality);
-            if (qualityPos != std::string::npos && qualityPos+ImageQuality.length()+1<line.length())
-            {
-              std::string qualitySubStr = line.substr(qualityPos+ImageQuality.length()+1);
-              pConf->mquality = atoi(qualitySubStr.c_str());
-              std::cout << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
-              logFile << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
-            }
+            std::cout << "Exact x step measurements found for level " << fileNum << std::endl;
           }
-          std::string line2=line.substr(0, 2);
-          if (line2=="x=")
+          size_t xOffsetPos = line.find(lXOffset);
+          if (xOffsetPos != std::string::npos && xOffsetPos+lXOffset.length()+1<line.length())
           {
-            std::string somenum=line.substr(2);
-            jpgxy.mx=atoi(somenum.c_str());
-            if (header) 
-            {
-  //            pConf->xAxis=jpgxy.x;
-              jpgxy.mx=0;
-            //  logFile << "!!xAxis " << pConf->xAxis << std::endl;
-            }
-            else
-            {
-              xFound=true;
-            }
+            //std::string xOffsetSubStr = line.substr(xOffsetPos+lXOffset.length()+1);
+            //xOffset = atoi(xOffsetSubStr.c_str());
           }
-          if (line2=="y=")
+          size_t yOffsetPos = line.find(lYOffset);
+          if (yOffsetPos != std::string::npos && yOffsetPos+lYOffset.length()+1<line.length())
           {
+            //std::string yOffsetSubStr = line.substr(yOffsetPos+lYOffset.length()+1);
+            //yOffset = atoi(yOffsetSubStr.c_str());
+          }
+          size_t dMagPos = line.find(dMagnification);
+          if (dMagPos != std::string::npos && dMagPos+dMagnification.length()+1<line.length())
+          {
+            std::string dMagSubStr = line.substr(dMagPos+dMagnification.length()+1);
+            mmagnification = atoi(dMagSubStr.c_str());
+          }
+          size_t qualityPos = line.find(ImageQuality);
+          if (qualityPos != std::string::npos && qualityPos+ImageQuality.length()+1<line.length())
+          {
+            std::string qualitySubStr = line.substr(qualityPos+ImageQuality.length()+1);
+            pConf->mquality = atoi(qualitySubStr.c_str());
+            std::cout << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
+            logFile << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
+          }
+        }
+        std::string line2=line.substr(0, 2);
+        if (line2=="x=")
+        {
+          std::string somenum=line.substr(2);
+          jpgxy.mx=atoi(somenum.c_str());
+          if (header) 
+          {
+            pConf->mxAxis = jpgxy.mx;
+            jpgxy.mx=0;
+          }
+          else
+          {
+            xFound=true;
+          }
+        }
+        if (line2=="y=")
+        {
           std::string somenum=line.substr(2);
           jpgxy.my=atoi(somenum.c_str());
           if (header) 
           {
-//            pConf->yAxis=jpgxy.y;
+            pConf->myAxis = jpgxy.my;
             jpgxy.my=0;
-          //  logFile << "!!yAxis " << pConf->yAxis << std::endl;
           }
           else
           {
@@ -538,15 +536,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       pConf->myAdj = (double) pConf->myStepSize / (double) pConf->mpixelHeight;
       logFile << pConf->myAdj << std::endl;
     }
-    if (pConf->mxAxis==0)
-    {
-      pConf->mxAxis=278000;
-    }
-    if (pConf->myAxis==0)
-    {
-      pConf->myAxis=142500;
-    }
-   
+  
     logFile << "fileName=" << pConf->mname << " xDiffMin=" << pConf->mxDiffMin << " xStepSize=" << pConf->mxStepSize << " xMin=" << pConf->mxMin << " xMax=" << pConf->mxMax << " xAxis=" << pConf->mxAxis << std::endl;
     logFile << "fileName=" << pConf->mname << " yDiffMin=" << pConf->myDiffMin << " yStepSize=" << pConf->myStepSize << " yMin=" << pConf->myMin << " yMax=" << pConf->myMax << " yAxis=" << pConf->myAxis << std::endl;
 
@@ -605,6 +595,31 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   {
     std::sort(mConf.begin(), mConf.end(), JpgFileXYSortForXAdj());
   }
+  for (int fileNum=0; fileNum < 4; fileNum++)
+  {
+    if (mConf[fileNum]->mxAxis==0)
+    {
+      if (fileNum==1 || fileNum==3)
+      {
+        mConf[fileNum]->mxAxis = mConf[fileNum-1]->mxAxis;
+      }
+      else
+      {
+        mConf[fileNum]->mxAxis=278000;
+      }
+    }
+    if (mConf[fileNum]->myAxis==0)
+    {
+      if (fileNum==1 || fileNum==3)
+      {
+        mConf[fileNum]->mxAxis = mConf[fileNum-1]->mxAxis;
+      }
+      else
+      {
+        mConf[fileNum]->myAxis=142500;
+      }
+    }
+  } 
 //  std::cout << "!!!!!!!!!!!!!!!! xMax (of all)=" << xMax << " yMax (of all)=" << yMax << std::endl;
   
   //*******************************************************************
@@ -1165,81 +1180,13 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
 
 bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pImageL2, std::fstream& logFile)
 {
-  double xMulti0 = mConf[2]->mxAdj / mConf[0]->mxAdj;
-  double yMulti0 = mConf[2]->myAdj / mConf[0]->myAdj;
-  double xMulti1 = mConf[2]->mxAdj / mConf[1]->mxAdj;
-  double yMulti1 = mConf[2]->myAdj / mConf[1]->myAdj;
-  IniConf *pLowerConf = mConf[lowerLevel];
   IniConf *pHigherConf = mConf[higherLevel];
-  double xZoomOut = pHigherConf->mxAdj / pLowerConf->mxAdj;
-  double yZoomOut = pHigherConf->myAdj / pLowerConf->myAdj;
-  int64_t simulatedWidth = (int64_t) lround((double)pLowerConf->mdetailedWidth / xZoomOut);
-  int64_t simulatedHeight = (int64_t) lround((double)pLowerConf->mdetailedHeight / yZoomOut);
-
-  logFile << "simulatedWidth=" << simulatedWidth << " simulatedHeight=" << simulatedHeight << std::endl;
-  cv::Mat* pImgComplete1 = new cv::Mat(simulatedHeight, simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  logFile << "Reading level " << lowerLevel << " and scaling..." << std::endl;
-  std::cout << "Reading level " << lowerLevel << " and scaling..." << std::endl;
-  for (int64_t i=0; i<pLowerConf->mtotalTiles; i++)
-  {
-    cv::Mat imgPart = cv::imread(pLowerConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
-    if (imgPart.total()>0)
-    {
-      //************************************************************
-      // Find the left and right borders
-      //************************************************************
-      cv::Size scaledSize((int64_t)lround(imgPart.cols / xZoomOut), (int64_t)lround(imgPart.rows / yZoomOut));
-      cv::Mat imgScaled((int64_t)scaledSize.width, (int64_t)scaledSize.height, CV_8UC3, cv::Scalar(255,255,255));
-      cv::resize(imgPart, imgScaled, scaledSize);
-
-      double xPixel=((double)((double)(pLowerConf->mxMax - pLowerConf->mxyArr[i].mx)/pLowerConf->mxAdj)/xZoomOut);
-      double yPixel=((double)((double)(pLowerConf->myMax - pLowerConf->mxyArr[i].my)/pLowerConf->myAdj)/yZoomOut);
-      int64_t xPixelInt = (int64_t) round(xPixel);
-      //if (xPixelInt > 0) xPixelInt--;
-      int64_t yPixelInt = (int64_t) round(yPixel);
-      //if (yPixelInt > 0) yPixelInt--;
-      // std::cout << "xPixel=" << xPixelInt << " yPixel=" << yPixelInt << " scaledSize.width=" << scaledSize.width << " scaledSize.height=" << scaledSize.height << std::endl;
-      int64_t cols = imgScaled.cols;
-      if (xPixelInt + cols > pImgComplete1->cols)
-      {
-        cols -= (xPixelInt + cols) - pImgComplete1->cols;
-      }
-      int64_t rows = imgScaled.rows;
-      if (yPixelInt + rows > pImgComplete1->rows)
-      {
-        rows -= (yPixelInt + rows) - pImgComplete1->rows;
-      }
-      //if (xPixelInt + imgPart.cols <= pImgComplete2->cols && yPixelInt + imgPart.rows <= pImgComplete2->rows)
-      if (cols > 0 && rows > 0)
-      {
-        cv::Rect roi(0, 0, cols, rows);
-        cv::Mat srcRoi(imgScaled, roi);
-        cv::Rect roi2(xPixelInt, yPixelInt, cols, rows);
-        cv::Mat destRoi(*pImgComplete1, roi2); 
-        srcRoi.copyTo(destRoi);
-        srcRoi.release();
-        destRoi.release();
-      }
-      /*
-      if (xPixelInt + scaledSize.width <= pImgComplete1->cols && yPixelInt + scaledSize.height <= pImgComplete1->rows)
-      {
-        cv::Mat imgRoi(*pImgComplete1, cv::Rect(xPixelInt, yPixelInt, (int64_t)scaledSize.width, (int64_t)scaledSize.height)); 
-        imgScaled.copyTo(imgRoi);
-        imgRoi.release();
-      }*/
-      else
-      {
-        std::cerr << "Warning: ROI outside of image boundaries: xPixel: " << xPixelInt << " width: " << scaledSize.width << " > " << pImgComplete1->cols;
-        std::cerr << " yPixel: " << yPixelInt << " height: " << scaledSize.height << " > " << pImgComplete1->rows << std::endl;
-      }
-    }
-    imgPart.release();
-  }
-  //cv::imshow("Scaled Image", imgComplete1);
+  
+  if (pImageL2 == NULL) return false;
 
   cv::Mat* pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
   //std::cout << "pImgComplete2 width " << pHigherConf->detailedWidth << " height: " << pHigherConf->detailedHeight,
-  logFile << "Reading level " << higherLevel << " and scaling." << std::endl;
+  logFile << "Reading level " << higherLevel << "." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
     cv::Mat imgPart = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
@@ -1280,27 +1227,8 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pIma
   }
  
   //double nn_match_ratio = 0.8;
-  cv::imwrite("imgComplete1.jpg", *pImgComplete1);
   cv::imwrite("imgComplete2.jpg", *pImgComplete2);
-  if (pImgComplete1->data)
-  {
-    pImgComplete1->release();
-  }
-  delete pImgComplete1;
-  pImgComplete1 = NULL;
-  if (pImageL2)
-  {
-    *pImageL2 = pImgComplete2;
-  }
-  else
-  {
-    if (pImgComplete2->data)
-    {
-      pImgComplete2->release();
-    }
-    delete pImgComplete2;
-    pImgComplete2 = NULL;
-  }
+  *pImageL2 = pImgComplete2;
   return true;
 }
 
