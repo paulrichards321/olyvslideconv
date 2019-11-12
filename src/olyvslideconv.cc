@@ -272,7 +272,7 @@ public:
   ~SlideConvertor() { closeRelated(); }
   void closeRelated();
   std::string getErrMsg() { return errMsg; }
-  int open(std::string inputFile, std::string outputFile, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, int quality, int64_t bestXOffset = -1, int64_t bestYOffset = -1, int outputType = 0, int debugLevel = 0);
+  int open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, int quality, int64_t bestXOffset = -1, int64_t bestYOffset = -1, int outputType = 0, int debugLevel = 0);
   bool my_mkdir(std::string name);
   void calcCenters(int outLevel, int64_t& xCenter, int64_t& yCenter);
   int convert();
@@ -1202,7 +1202,7 @@ int SlideConvertor::convert2Gmap()
 }
 
 
-int SlideConvertor::open(std::string inputFile, std::string outputFile, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, int quality, int64_t bestXOffset, int64_t bestYOffset, int outputType, int debugLevel)
+int SlideConvertor::open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, int quality, int64_t bestXOffset, int64_t bestYOffset, int outputType, int debugLevel)
 {
   mValidObject = false;
   mDebugLevel = debugLevel;
@@ -1210,7 +1210,7 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool ble
   logFile = new std::ofstream("olyvslideconv.log");
   slide = new CompositeSlide();
   errMsg="";
-  if (slide->open(inputFile.c_str(), false, markOutline, bestXOffset, bestYOffset, &mpImageL2)==false)
+  if (slide->open(inputFile.c_str(), useOpenCV, markOutline, bestXOffset, bestYOffset, &mpImageL2)==false)
   {
     return 1;
   }
@@ -1384,6 +1384,7 @@ int main(int argc, char** argv)
   std::string infile, outfile;
   int64_t bestXOffset = -1, bestYOffset = -1;
   bool xOffsetSet = false, yOffsetSet = false;
+  bool useOpenCV = false;
   bool blendTopLevel = true;
   bool blendByRegion = false;
   bool doBorderHighlight = false;
@@ -1391,7 +1392,7 @@ int main(int argc, char** argv)
   static int outputType = 0;
   int quality = 90;
   int debugLevel = 0;
-  char syntax[] = "syntax: olyvslideconv -b=[on,off] -d=[0-3] -h=[on,off] -r=[on,off] -x=[bestXOffset] -y=[bestYOffset] -z=[on,off] [--tiff, --google] <inputfolder> <outputfile> \nFlags:\t--tiff output to tif file.\n\t--google output to google maps format.\n\t-b blend the top level with the middle level. Default on.\n\t-d Debug mode, output debugging info and files. Default 0. The higher the more debugging output.\n\t-r Blend the top level with the middle level by region, not by empty background, default off.\n\t-h highlight visible areas with a black border. Default off.\n\t-q Set minimal jpeg quality percentage. Default 90.\n\t-x and -y Optional: set best X, Y offset of image if upper and lower pyramid levels are not aligned.\n\t-z Process Z-stack if the image has one. Default off.\n";
+  char syntax[] = "syntax: olyvslideconv -b=[on,off] -d=[0-3] -h=[on,off] -r=[on,off] -x=[bestXOffset] -y=[bestYOffset] -o=[on,off] -z=[on,off] [--tiff, --google] <inputfolder> <outputfile> \nFlags:\t--tiff output to tif file.\n\t--google output to google maps format.\n\t-b blend the top level with the middle level. Default on.\n\t-d Debug mode, output debugging info and files. Default 0. The higher the more debugging output.\n\t-r Blend the top level with the middle level by region, not by empty background, default off.\n\t-h highlight visible areas with a black border. Default off.\n\t-q Set minimal jpeg quality percentage. Default 90.\n\t-o Use opencv to calculate the offset for the upper and higher level (almost never required).\n\t-x and -y Optional: set best X, Y offset of image if upper and lower pyramid levels are not aligned.\n\t-z Process Z-stack if the image has one. Default off.\n";
 
   if (argc < 3)
   {
@@ -1409,6 +1410,7 @@ int main(int argc, char** argv)
       {"blend",       required_argument,  0,             'b'},
       {"debug",       required_argument,  0,             'd'},
       {"highlight",   required_argument,  0,             'h'},
+      {"opencv",      required_argument,  0,             'o'},
       {"region",      required_argument,  0,             'r'},
       {"quality",     required_argument,  0,             'q'},
       {"xoffset",     required_argument,  0,             'x'},
@@ -1436,6 +1438,9 @@ int main(int argc, char** argv)
         break;
       case 'q':
         quality = getIntOpt(optarg, invalidOpt);
+        break;
+      case 'o':
+        useOpenCV = getBoolOpt(optarg, invalidOpt);
         break;
       case 'x':
         bestXOffset = getIntOpt(optarg, invalidOpt);
@@ -1502,6 +1507,7 @@ int main(int argc, char** argv)
   
   std::cout << "Set debug level: " << debugLevel << std::endl;
   std::cout << "Set quality: " << quality << std::endl;
+  std::cout << "Use OpenCV: " << bool2txt(useOpenCV) << std::endl;
   std::cout << "Set blend top level: " << bool2txt(blendTopLevel) << std::endl;
   std::cout << "Set border highlight: " << bool2txt(doBorderHighlight) << std::endl;
   std::cout << "Set blend by region: " << bool2txt(blendByRegion) << std::endl;
@@ -1511,7 +1517,7 @@ int main(int argc, char** argv)
   }
   else
   {
-    std::cout << "Set bestXOffset: default (calculated with opencv)" << std::endl;
+    std::cout << "Set bestXOffset: default" << std::endl;
   }
   if (yOffsetSet)
   {
@@ -1519,10 +1525,10 @@ int main(int argc, char** argv)
   }
   else
   {
-    std::cout << "Set bestYOffset: default (calculated with opencv)" << std::endl;
+    std::cout << "Set bestYOffset: default" << std::endl;
   }
 
-  error=slideConv.open(infile.c_str(), outfile.c_str(), blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, quality, bestXOffset, bestYOffset, outputType, debugLevel);
+  error=slideConv.open(infile.c_str(), outfile.c_str(), useOpenCV, blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, quality, bestXOffset, bestYOffset, outputType, debugLevel);
   if (error==0)
   {
     if (outputType == OLYVSLIDE_TIF)
