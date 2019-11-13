@@ -248,6 +248,7 @@ protected:
   bool mValidObject;
   int mOutputType;
   bool mBlendTopLevel, mBlendByRegion;
+  bool mCreateLog;
   int mBaseLevel;
   bool mIncludeZStack;
   bool mCenter;
@@ -272,7 +273,7 @@ public:
   ~SlideConvertor() { closeRelated(); }
   void closeRelated();
   std::string getErrMsg() { return errMsg; }
-  int open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, int quality, int64_t bestXOffset = -1, int64_t bestYOffset = -1, int outputType = 0, int debugLevel = 0);
+  int open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset = -1, int64_t bestYOffset = -1, int outputType = 0, int debugLevel = 0);
   bool my_mkdir(std::string name);
   void calcCenters(int outLevel, int64_t& xCenter, int64_t& yCenter);
   int convert();
@@ -371,23 +372,6 @@ void SlideConvertor::tileCleanup(SlideLevel &l)
   safeBmpFree(&l.sizedBitmap);
   safeBmpFree(&l.sizedBitmap2);
   safeBmpFree(&l.safeScaledL2Mini2);
-/*
-  if (l.pBitmap1)
-  {
-    delete[] l.pBitmap1;
-    l.pBitmap1 = 0;
-  }
-  if (l.pSizedBitmap)
-  {
-    delete[] l.pSizedBitmap;
-    l.pSizedBitmap = 0;
-  }
-  if (l.pSizedBitmap2)
-  {
-    delete[] l.pSizedBitmap2;
-    l.pSizedBitmap2 = 0;
-  }
-  */
 }
 
 // Scale the larger complete L2 image into a tiled smaller 
@@ -726,21 +710,20 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   // Make sure the quality is at minimum the quality specific on the
   // command line
   l.quality=slide->getQuality(l.olympusLevel);
-  if (l.quality<mQuality || l.quality<=0)
+  if (l.quality == 0 || l.quality < mQuality)
   {
-    l.quality=mQuality;
+    l.quality = mQuality;
   }
-
   if (l.outputType == OLYVSLIDE_GOOGLE)
   {
     output << "Google Maps Level=" << l.outLevel << " Olympus Level=" << l.olympusLevel << " Divisor of Base=" << l.magnifyX << std::endl;
-    *logFile << output.str();
+    if (mCreateLog) *logFile << output.str();
     std::cout << output.str();
   }
   else if (l.outputType == OLYVSLIDE_TIF)
   {
     output << "Tiff Level=" << l.outLevel << " Olympus Level=" << l.olympusLevel << " Divisor of Base=" << l.magnifyX << std::endl;
-    *logFile << output.str();
+    if (mCreateLog) *logFile << output.str();
     std::cout << output.str();
    
     int totalMag=slide->getMagnification();
@@ -774,7 +757,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     output << "Scanning Olympus Level=" << l.olympusLevel << " for Background Blending Information" << std::endl;
     
-    *logFile << output.str();
+    if (mCreateLog) *logFile << output.str();
     std::cout << output.str();
   }
 
@@ -799,10 +782,13 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       l.xSubSections=mxSubSections;
       l.ySubSections=mySubSections;
     }
-    *logFile << " xScale=" << l.xScale << " yScale=" << l.yScale;
-    *logFile << " srcTotalWidth=" << l.srcTotalWidth << " srcTotalHeight=" << l.srcTotalHeight;
-    *logFile << " destTotalWidth=" << l.destTotalWidth << " destTotalHeight=" << l.destTotalHeight;
-    *logFile << std::endl;
+    if (mCreateLog)
+    {
+      *logFile << " xScale=" << l.xScale << " yScale=" << l.yScale;
+      *logFile << " srcTotalWidth=" << l.srcTotalWidth << " srcTotalHeight=" << l.srcTotalHeight;
+      *logFile << " destTotalWidth=" << l.destTotalWidth << " destTotalHeight=" << l.destTotalHeight;
+      *logFile << std::endl;
+    }
     
     int perc=0, percOld=0;
     bool onePercHit=false;
@@ -975,7 +961,14 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       l.yDest += l.finalOutputHeight2;
       l.ySrc += l.grabHeightB;
       l.yTile++;
-      perc=(int)(((double) l.yDest / (double) l.outputLvlTotalHeight) * 100);
+      if (l.outputType == OLYVSLIDE_SCANONLY)
+      {
+        perc=(int)(((double) l.ySrc / (double) l.srcTotalHeight) * 100);
+      }
+      else
+      {
+        perc=(int)(((double) l.yDest / (double) l.outputLvlTotalHeight) * 100);
+      }
       if (perc>100)
       {
         perc=100;
@@ -1002,7 +995,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         std::string errMsg;
         mTif->getErrMsg(errMsg);
         std::cerr << tifDirErrorMsg << errMsg << std::endl;
-        *logFile << tifDirErrorMsg << errMsg << std::endl;
+        if (mCreateLog) *logFile << tifDirErrorMsg << errMsg << std::endl;
         error = true;
       }
     }
@@ -1011,7 +1004,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     const char *msg = "Fatal Error: Failed to get memory. Cannot continue!";
     std::cout << msg << std::endl;
-    *logFile << msg << std::endl;
+    if (mCreateLog) *logFile << msg << std::endl;
     error = true;
   }
   safeBmpFree(l.pBitmap4);
@@ -1202,15 +1195,20 @@ int SlideConvertor::convert2Gmap()
 }
 
 
-int SlideConvertor::open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, int quality, int64_t bestXOffset, int64_t bestYOffset, int outputType, int debugLevel)
+int SlideConvertor::open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset, int64_t bestYOffset, int outputType, int debugLevel)
 {
   mValidObject = false;
   mDebugLevel = debugLevel;
   closeRelated();
-  logFile = new std::ofstream("olyvslideconv.log");
+  logFile = new std::ofstream;
+  mCreateLog = createLog;
+  if (mCreateLog)
+  {
+    logFile->open("olyvslideconv.log");
+  }
   slide = new CompositeSlide();
   errMsg="";
-  if (slide->open(inputFile.c_str(), useOpenCV, markOutline, bestXOffset, bestYOffset, &mpImageL2)==false)
+  if (slide->open(inputFile.c_str(), useOpenCV, markOutline, createLog, bestXOffset, bestYOffset, &mpImageL2)==false)
   {
     return 1;
   }
@@ -1389,10 +1387,11 @@ int main(int argc, char** argv)
   bool blendByRegion = false;
   bool doBorderHighlight = false;
   bool includeZStack = false;
+  bool createLog = false;
   static int outputType = 0;
-  int quality = 90;
+  int quality = 85;
   int debugLevel = 0;
-  char syntax[] = "syntax: olyvslideconv -b=[on,off] -d=[0-3] -h=[on,off] -r=[on,off] -x=[bestXOffset] -y=[bestYOffset] -o=[on,off] -z=[on,off] [--tiff, --google] <inputfolder> <outputfile> \nFlags:\t--tiff output to tif file.\n\t--google output to google maps format.\n\t-b blend the top level with the middle level. Default on.\n\t-d Debug mode, output debugging info and files. Default 0. The higher the more debugging output.\n\t-r Blend the top level with the middle level by region, not by empty background, default off.\n\t-h highlight visible areas with a black border. Default off.\n\t-q Set minimal jpeg quality percentage. Default 90.\n\t-o Use opencv to calculate the offset for the upper and higher level (almost never required).\n\t-x and -y Optional: set best X, Y offset of image if upper and lower pyramid levels are not aligned.\n\t-z Process Z-stack if the image has one. Default off.\n";
+  char syntax[] = "syntax: olyvslideconv -b=[on,off] -l=[on,off] -o=[on,off] -d=[0-3] -h=[on,off] -r=[on,off] -x=[bestXOffset] -y=[bestYOffset] -o=[on,off] -z=[on,off] [--tiff, --google] <inputfolder> <outputfile> \nFlags:\t--tiff output to tif file.\n\t--google output to google maps format.\n\t-b blend the top level with the middle level. Default on.\n\t-l log general information about the slide.\n\t-d Debug mode, output debugging info and files. Default 0. The higher the more debugging output. Sets logging on as well.\n\t-r Blend the top level with the middle level by region, not by empty background, default off.\n\t-h highlight visible areas with a black border. Default off.\n\t-q Set minimal jpeg quality percentage. Default 85 for level 0, 90 for level 1, and 95 for level 2 and above.\n\t-o Use opencv (computer vision) to calculate the offset for the upper and higher level (almost never required).\n\t-x and -y Optional: set best X, Y offset of image if upper and lower pyramid levels are not aligned.\n\t-z Process Z-stack if the image has one. Default off.\n";
 
   if (argc < 3)
   {
@@ -1409,6 +1408,7 @@ int main(int argc, char** argv)
       {"tiff",        no_argument,        &outputType,  OLYVSLIDE_TIF},
       {"blend",       required_argument,  0,             'b'},
       {"debug",       required_argument,  0,             'd'},
+      {"log",         required_argument,  0,             'l'},
       {"highlight",   required_argument,  0,             'h'},
       {"opencv",      required_argument,  0,             'o'},
       {"region",      required_argument,  0,             'r'},
@@ -1432,6 +1432,9 @@ int main(int argc, char** argv)
         break;
       case 'h':
         doBorderHighlight = getBoolOpt(optarg, invalidOpt);
+        break;
+      case 'l':
+        createLog = getBoolOpt(optarg, invalidOpt);
         break;
       case 'r':
         blendByRegion = getBoolOpt(optarg, invalidOpt);
@@ -1505,9 +1508,10 @@ int main(int argc, char** argv)
     return 1;
   }
   
+  std::cout << "Set logging: " << bool2txt(createLog) << std::endl;
   std::cout << "Set debug level: " << debugLevel << std::endl;
-  std::cout << "Set quality: " << quality << std::endl;
-  std::cout << "Use OpenCV: " << bool2txt(useOpenCV) << std::endl;
+  std::cout << "Set minimum quality: " << quality << std::endl;
+  std::cout << "Use OpenCV/computer vision: " << bool2txt(useOpenCV) << std::endl;
   std::cout << "Set blend top level: " << bool2txt(blendTopLevel) << std::endl;
   std::cout << "Set border highlight: " << bool2txt(doBorderHighlight) << std::endl;
   std::cout << "Set blend by region: " << bool2txt(blendByRegion) << std::endl;
@@ -1528,7 +1532,7 @@ int main(int argc, char** argv)
     std::cout << "Set bestYOffset: default" << std::endl;
   }
 
-  error=slideConv.open(infile.c_str(), outfile.c_str(), useOpenCV, blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, quality, bestXOffset, bestYOffset, outputType, debugLevel);
+  error=slideConv.open(infile.c_str(), outfile.c_str(), useOpenCV, blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, createLog, quality, bestXOffset, bestYOffset, outputType, debugLevel);
   if (error==0)
   {
     if (outputType == OLYVSLIDE_TIF)

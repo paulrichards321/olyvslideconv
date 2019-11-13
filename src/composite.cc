@@ -168,7 +168,7 @@ bool CompositeSlide::checkLevel(int level)
 }
 
 
-bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool doBorderHighlight, int64_t bestXOffset, int64_t bestYOffset, cv::Mat **pImageL2)
+bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool doBorderHighlight, bool createLog, int64_t bestXOffset, int64_t bestYOffset, cv::Mat **pImageL2)
 {
   JpgFileXY jpgxy;
   JpgFileXY jpgxyzstack;                  
@@ -188,8 +188,6 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   std::string ImageQuality = "ImageQuality";
   std::string inputDir = srcFileName;
   mGrayScale = false;
-  //int64_t xAxis, yAxis;
-  //int64_t xOffset, yOffset;
 
   initialize();
 
@@ -215,7 +213,11 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
     }
   }
   
-  std::fstream logFile("SlideScan.openimage.log", std::ios::out);
+  std::fstream logFile;
+  if (createLog)
+  {
+    logFile.open("SlideScan.openimage.log", std::ios::out);
+  }
   for (int fileNum = 0; fileNum < 4; fileNum++)
   {
     IniConf* pConf = mConf[fileNum];
@@ -259,17 +261,14 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
             pConf->mxyArr.push_back(jpgxy);
           }
           std::string chunkName=line.substr(1, rpos-1);
-          //gchar* foldedChunkName = g_utf8_casefold((gchar*)chunkName.c_str(), chunkName.length());
           if (strcasecmp(headerStr.c_str(), chunkName.c_str())==0)
           {
-            //    std::cout << "In header!" << std::endl;
             jpgxy.mBaseFileName.clear();
             nameFound = false;
             header = true;
           }
           else
           {
-            //logFile << "Input Dir=" << inputDir << std::endl;
             jpgxy.mBaseFileName = inputDir;
             jpgxy.mBaseFileName += separator();
             jpgxy.mBaseFileName += chunkName;
@@ -296,7 +295,6 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
             jpgxy.mBaseFileName += ".jpg";
             nameFound = true;
             header = false;
-            //logFile << "Filename=" << jpgxy.fileName << std::endl;
           }
           //g_object_unref(foldedHeaderName);
           xFound = false;
@@ -321,23 +319,18 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
           {
             std::string xStageSubStr = line.substr(xStagePos+lXStageRef.length()+1);
             pConf->mxAxis=atoi(xStageSubStr.c_str());
-            //xAxis=pConf->mxAxis;
-          //  logFile << "!!xAxis " << pConf->xAxis << std::endl;
           }
           size_t yStagePos=line.find(lYStageRef);
           if (yStagePos != std::string::npos && yStagePos+lYStageRef.length()+1<line.length())
           {
             std::string yStageSubStr = line.substr(yStagePos+lYStageRef.length()+1);
             pConf->myAxis=atoi(yStageSubStr.c_str());
-            //yAxis=pConf->myAxis;
-          //  logFile << "!!yAxis " << pConf->yAxis << std::endl;
           }
           size_t yStepPos = line.find(lYStepSize);
           if (yStepPos != std::string::npos && yStepPos+lYStepSize.length()+1<line.length())
           {
             std::string yStepSubStr = line.substr(yStepPos+lYStepSize.length()+1);
             pConf->myStepSize = atoi(yStepSubStr.c_str());
-//              logFile << " fileNum=" << fileNum << " yStepSize=" << pConf->myStepSize << std::endl;
             std::cout << "Exact y step measurements found for level " << fileNum << std::endl;
           }
           size_t xStepPos = line.find(lXStepSize);
@@ -345,7 +338,6 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
           {
             std::string xStepSubStr = line.substr(xStepPos+lXStepSize.length()+1);
             pConf->mxStepSize = atoi(xStepSubStr.c_str());
-//              logFile << " fileNum=" << fileNum << " xStepSize=" << pConf->mxStepSize << std::endl;
             std::cout << "Exact x step measurements found for level " << fileNum << std::endl;
           }
           size_t xOffsetPos = line.find(lXOffset);
@@ -372,7 +364,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
             std::string qualitySubStr = line.substr(qualityPos+ImageQuality.length()+1);
             pConf->mquality = atoi(qualitySubStr.c_str());
             std::cout << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
-            logFile << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
+            if (createLog) logFile << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
           }
         }
         std::string line2=line.substr(0, 2);
@@ -438,13 +430,16 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
         jpg.getErrMsg(errMsg);
         std::cerr << "Error: failed to open " << pConf->mxyArr[0].mBaseFileName << " do not have pixel width and height for source jpgs." << std::endl;
         std::cerr << "Returned error: " << errMsg << std::endl;
-        logFile << "Error: failed to open " << pConf->mxyArr[0].mBaseFileName << " do not have pixel width and height for source jpgs." << std::endl;
-        logFile << "Returned error: " << errMsg << std::endl;
-        logFile.close();
+        if (createLog) 
+        {
+          logFile << "Error: failed to open " << pConf->mxyArr[0].mBaseFileName << " do not have pixel width and height for source jpgs." << std::endl;
+          logFile << "Returned error: " << errMsg << std::endl;
+          logFile.close();
+        }
         return false;
       }
     }
-    logFile << "fileName=" << pConf->mname << " jpgWidth=" << pConf->mpixelWidth << " jpgHeight=" << pConf->mpixelHeight << std::endl;
+    if (createLog) logFile << "fileName=" << pConf->mname << " jpgWidth=" << pConf->mpixelWidth << " jpgHeight=" << pConf->mpixelHeight << std::endl;
     pConf->mfound = true;
     
     //************************************************************************
@@ -455,7 +450,6 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
     pConf->mxMax = pConf->mxyArr[pConf->mtotalTiles-1].mx;
     for (int64_t i=0; i+1 < pConf->mtotalTiles; i++)
     {
-      //logFile << " Sorted: x=" << pConf->xyArr[i].x << " y=" << pConf->xyArr[i].y << std::endl;
       if (pConf->mxyArr[i+1].mx==pConf->mxyArr[i].mx)
       {
         int64_t diff=pConf->mxyArr[i+1].my - pConf->mxyArr[i].my;
@@ -475,7 +469,6 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
 
     for (int64_t i=0; i+1 < pConf->mtotalTiles; i++)
     {
-      //logFile << " Sorted: x=" << pConf->xyArr[i].x << " y=" << pConf->xyArr[i].y << std::endl;
       if (pConf->mxyArr[i+1].my==pConf->mxyArr[i].my)
       {
         int64_t diff=pConf->mxyArr[i+1].mx - pConf->mxyArr[i].mx;
@@ -485,15 +478,9 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
         }
       }
     }
-    if (fileNum<2)
-    {
-      //pConf->xMin += xOffset; // Note try removing this!
-      //pConf->yMin += yOffset;
-    }
-
     if (pConf->mxStepSize>0)
     {
-      logFile << "fileName=" << pConf->mname << " xAdj calculation exact=";
+      if (createLog) logFile << "fileName=" << pConf->mname << " xAdj calculation exact=";
     }
     else
     {
@@ -505,18 +492,18 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       {
         pConf->mxStepSize = pConf->mxDiffMin;
       }
-      logFile << "fileName=" << pConf->mname << " Guessing xAdj=";
+      if (createLog) logFile << "fileName=" << pConf->mname << " Guessing xAdj=";
     }
    	//pConf->mxMin -= pConf->mxStepSize;
     if (pConf->mpixelWidth>0 && pConf->mxStepSize>0)
     {
       pConf->mxAdj = (double) pConf->mxStepSize / (double) pConf->mpixelWidth;
-      logFile << pConf->mxAdj << std::endl;
+      if (createLog) logFile << pConf->mxAdj << std::endl;
     }
    
     if (pConf->myStepSize>0)
     {
-      logFile << "fileName=" << pConf->mname << " yAdj calculation exact=";
+      if (createLog) logFile << "fileName=" << pConf->mname << " yAdj calculation exact=";
     }
     else
     {
@@ -528,18 +515,20 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       {
         pConf->myStepSize = pConf->myDiffMin;
       }
-      logFile << "fileName=" << pConf->mname << " Guessing yAdj=";
+      if (createLog) logFile << "fileName=" << pConf->mname << " Guessing yAdj=";
     }
     //pConf->myMin -= pConf->myStepSize;
     if (pConf->mpixelHeight>0 && pConf->myStepSize>0)
     {
       pConf->myAdj = (double) pConf->myStepSize / (double) pConf->mpixelHeight;
-      logFile << pConf->myAdj << std::endl;
+      if (createLog) logFile << pConf->myAdj << std::endl;
     }
   
-    logFile << "fileName=" << pConf->mname << " xDiffMin=" << pConf->mxDiffMin << " xStepSize=" << pConf->mxStepSize << " xMin=" << pConf->mxMin << " xMax=" << pConf->mxMax << " xAxis=" << pConf->mxAxis << std::endl;
-    logFile << "fileName=" << pConf->mname << " yDiffMin=" << pConf->myDiffMin << " yStepSize=" << pConf->myStepSize << " yMin=" << pConf->myMin << " yMax=" << pConf->myMax << " yAxis=" << pConf->myAxis << std::endl;
-
+    if (createLog) 
+    {
+      logFile << "fileName=" << pConf->mname << " xDiffMin=" << pConf->mxDiffMin << " xStepSize=" << pConf->mxStepSize << " xMin=" << pConf->mxMin << " xMax=" << pConf->mxMax << " xAxis=" << pConf->mxAxis << std::endl;
+      logFile << "fileName=" << pConf->mname << " yDiffMin=" << pConf->myDiffMin << " yStepSize=" << pConf->myStepSize << " yMin=" << pConf->myMin << " yMax=" << pConf->myMax << " yAxis=" << pConf->myAxis << std::endl;
+    }
     pConf->mdetailedWidth = (pConf->mxMax - (pConf->mxMin - pConf->mxStepSize)) / pConf->mxAdj;
     pConf->mdetailedHeight = (pConf->myMax - (pConf->myMin - pConf->myStepSize)) / pConf->myAdj;
     if ((yMinSet==false || pConf->myMin < myMin) && fileNum < 3)
@@ -597,30 +586,60 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   }
   for (int fileNum=0; fileNum < 4; fileNum++)
   {
-    if (mConf[fileNum]->mxAxis==0)
+    if (mConf[fileNum]->mxAxis==0 || mConf[fileNum]->myAxis==0)
     {
-      if (fileNum==1 || fileNum==3)
+      int targetFileNum;
+      if (fileNum==0 && mConf[2]->mxAxis > 0)
       {
-        mConf[fileNum]->mxAxis = mConf[fileNum-1]->mxAxis;
+        targetFileNum = 2;
+      }
+      else if (fileNum==0 && mConf[1]->mxAxis > 0)
+      {
+        targetFileNum = 1;
+      }
+      else if (fileNum==2 && mConf[0]->mxAxis > 0)
+      {
+        targetFileNum = 0;
+      }
+      else if (fileNum==2 && mConf[1]->mxAxis > 0)
+      {
+        targetFileNum = 1;
+      }
+      else if (fileNum==1 || fileNum==3)
+      {
+        targetFileNum = fileNum - 1;
+      }
+      else 
+      {
+        targetFileNum = -1;
+      }
+      if (targetFileNum >= 0)
+      {
+        mConf[fileNum]->mxAxis = mConf[targetFileNum]->mxAxis;
+        mConf[fileNum]->myAxis = mConf[targetFileNum]->myAxis;
       }
       else
       {
         mConf[fileNum]->mxAxis=278000;
-      }
-    }
-    if (mConf[fileNum]->myAxis==0)
-    {
-      if (fileNum==1 || fileNum==3)
-      {
-        mConf[fileNum]->mxAxis = mConf[fileNum-1]->mxAxis;
-      }
-      else
-      {
         mConf[fileNum]->myAxis=142500;
       }
     }
+    if (mConf[fileNum]->mquality == 0)
+    {
+      if (fileNum==1)
+      {
+        mConf[fileNum]->mquality = 90;
+      }
+      else if (fileNum>1)
+      {
+        mConf[fileNum]->mquality = 95;
+      }
+      else
+      {
+        mConf[fileNum]->mquality = 85;
+      }
+    }
   } 
-//  std::cout << "!!!!!!!!!!!!!!!! xMax (of all)=" << xMax << " yMax (of all)=" << yMax << std::endl;
   
   //*******************************************************************
   // Find the pyramid level lowest zoom and set that as current image
@@ -636,9 +655,9 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   }
   if (level==-1)
   {
-    logFile << "File has no readable levels." << std::endl;
+    if (createLog) logFile << "File has no readable levels." << std::endl;
     mValidObject = false;
-    logFile.close();
+    if (createLog) logFile.close();
     return false;
   }
   
@@ -727,7 +746,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   // log file width and height
   for (int fileNum=0; fileNum < 4; fileNum++)
   {
-    logFile << "fileName=" << mConf[fileNum]->mname << " totalWidth in pixels=" << mConf[fileNum]->mtotalWidth << " totalHeight in pixels=" << mConf[fileNum]->mtotalHeight << std::endl;
+    if (createLog) logFile << "fileName=" << mConf[fileNum]->mname << " totalWidth in pixels=" << mConf[fileNum]->mtotalWidth << " totalHeight in pixels=" << mConf[fileNum]->mtotalHeight << std::endl;
   }
 
   IniConf* pHigherConf = NULL;
@@ -782,13 +801,13 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       //if (yPixelInt>0) yPixelInt--;
       pConf->mxyArr[i].myPixel=yPixelInt; // previous use lround here
       
-      logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixelInt << " y=" << yPixelInt << std::endl;
+      if (createLog) logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixelInt << " y=" << yPixelInt << std::endl;
 
       for (int zSplit=0; zSplit < 2; zSplit++)
       {
         for (int zLevel=0; zLevel<4; zLevel++)
         {
-          if (pConf->mxyArr[i].mzStack[zSplit][zLevel])
+          if (pConf->mxyArr[i].mzStack[zSplit][zLevel] && createLog)
           {
             logFile << "filename=" << pConf->mxyArr[i].mFileName[zSplit][zLevel] << " x=" << xPixelInt << " y=" << yPixelInt << std::endl;
           }
@@ -803,11 +822,11 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   int64_t bestYOffsetL0=0, bestYOffsetL1=0;
   if (lowerLevelFound && higherLevelFound && useOpenCV)
   {
-    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, pImageL2, logFile);
+    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, pImageL2, createLog, logFile);
   }
   if (lowerLevelFound && higherLevelFound && useOpenCV==false)
   {
-    loadL2Image(lowerLevel, higherLevel, pImageL2, logFile);
+    loadL2Image(lowerLevel, higherLevel, pImageL2, createLog, logFile);
 
     double higherRatioX = (double) pHigherConf->mpixelWidth / (double) pHigherConf->mxStepSize; 
     double higherRatioY = (double) pHigherConf->mpixelHeight / (double) pHigherConf->myStepSize;
@@ -894,7 +913,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       pConf->mxSortedArr[i].mxPixel=(int64_t)round(xPixel);
       pConf->mxSortedArr[i].myPixel=(int64_t)round(yPixel);
       
-      logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixel << " y=" << yPixel << std::endl;
+      if (createLog) logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixel << " y=" << yPixel << std::endl;
     }
     std::sort(pConf->mxyArr.begin(), pConf->mxyArr.end());
     std::sort(pConf->mxSortedArr.begin(), pConf->mxSortedArr.end(), JpgXYSortForX());
@@ -924,7 +943,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
     previewConf->mpixelWidth = previewConf->mtotalWidth = previewJpg.getActualWidth();
     previewConf->mpixelHeight = previewConf->mtotalHeight = previewJpg.getActualHeight();
     previewConf->mtotalTiles = 1;
-    logFile << " PreviewSlide.jpg found. Width=" << previewConf->mpixelWidth << " Height=" << previewConf->mpixelHeight << std::endl;
+    if (createLog) logFile << " PreviewSlide.jpg found. Width=" << previewConf->mpixelWidth << " Height=" << previewConf->mpixelHeight << std::endl;
     jpgxy.mBaseFileName = previewFileName;
     jpgxy.mxPixel=0;
     jpgxy.myPixel=0;
@@ -940,12 +959,12 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   {
     std::cerr << "Warning: PreviewSlide.jpg not found." << std::endl;
   }
-  logFile.close();
+  if (createLog) logFile.close();
   return true;
 }
 
 
-bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, cv::Mat **pImageL2, std::fstream& logFile)
+bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, cv::Mat **pImageL2, bool createLog, std::fstream& logFile)
 {
   double xMulti0 = mConf[2]->mxAdj / mConf[0]->mxAdj;
   double yMulti0 = mConf[2]->myAdj / mConf[0]->myAdj;
@@ -966,9 +985,9 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   //simulatedWidth += imgTest.cols / xZoomOut;
   //simulatedHeight += imgTest.rows / yZoomOut;
 
-  logFile << "simulatedWidth=" << simulatedWidth << " simulatedHeight=" << simulatedHeight << std::endl;
+  if (createLog) logFile << "simulatedWidth=" << simulatedWidth << " simulatedHeight=" << simulatedHeight << std::endl;
   cv::Mat* pImgComplete1 = new cv::Mat(simulatedHeight, simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  logFile << "Reading level " << lowerLevel << " and scaling..." << std::endl;
+  if (createLog) logFile << "Reading level " << lowerLevel << " and scaling..." << std::endl;
   std::cout << "Reading level " << lowerLevel << " and scaling..." << std::endl;
   for (int64_t i=0; i<pLowerConf->mtotalTiles; i++)
   {
@@ -1029,7 +1048,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
 
   cv::Mat* pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
   //std::cout << "pImgComplete2 width " << pHigherConf->detailedWidth << " height: " << pHigherConf->detailedHeight,
-  logFile << "Reading level " << higherLevel << " and scaling." << std::endl;
+  if (createLog) logFile << "Reading level " << higherLevel << " and scaling." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
     cv::Mat imgPart = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
@@ -1142,14 +1161,17 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     bestXOffset = 0;
     bestYOffset = 0;
   }
-  logFile << "Diff X Vector Size: " << diffXs.size() << std::endl;
-  logFile << "Best (First in sorted arrays) X, Y alignment: " << bestXOffset << " " << bestYOffset << std::endl;
-  logFile << "Alignment array: " << std::endl;
-  for (uint64_t i=0; i<diffXs.size(); i++)
+  if (createLog)
   {
-    logFile << " {" << diffXs[i] << "," << diffYs[i] << "} ";
+    logFile << "Diff X Vector Size: " << diffXs.size() << std::endl;
+    logFile << "Best (First in sorted arrays) X, Y alignment: " << bestXOffset << " " << bestYOffset << std::endl;
+    logFile << "Alignment array: " << std::endl;
+    for (uint64_t i=0; i<diffXs.size(); i++)
+    {
+      logFile << " {" << diffXs[i] << "," << diffYs[i] << "} ";
+    }
+    logFile << std::endl;
   }
-  logFile << std::endl;
 
   *bestXOffset0 = (bestXOffset * xMulti0) + ((mConf[1]->mxMax - mConf[0]->mxMax) / mConf[0]->mxAdj);
   *bestYOffset0 = (bestYOffset * yMulti0) + ((mConf[1]->myMax - mConf[0]->myMax) / mConf[0]->myAdj);
@@ -1178,7 +1200,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
 }
 
 
-bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pImageL2, std::fstream& logFile)
+bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pImageL2, bool createLog, std::fstream& logFile)
 {
   IniConf *pHigherConf = mConf[higherLevel];
   
@@ -1186,7 +1208,7 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pIma
 
   cv::Mat* pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
   //std::cout << "pImgComplete2 width " << pHigherConf->detailedWidth << " height: " << pHigherConf->detailedHeight,
-  logFile << "Reading level " << higherLevel << "." << std::endl;
+  if (createLog) logFile << "Reading level " << higherLevel << "." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
     cv::Mat imgPart = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
