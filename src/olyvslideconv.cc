@@ -1488,6 +1488,8 @@ int main(int argc, char** argv)
       outfile=argv[optind];
     }
   }
+  if (debugLevel > 0) createLog = true;
+  
   if (infile.length() == 0 || outfile.length() == 0)
   {
     std::cerr << syntax;

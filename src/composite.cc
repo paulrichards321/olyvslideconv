@@ -1249,7 +1249,7 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pIma
   }
  
   //double nn_match_ratio = 0.8;
-  cv::imwrite("imgComplete2.jpg", *pImgComplete2);
+  if (createLog) cv::imwrite("imgComplete2.jpg", *pImgComplete2);
   *pImageL2 = pImgComplete2;
   return true;
 }
