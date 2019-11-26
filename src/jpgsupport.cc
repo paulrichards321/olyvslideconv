@@ -319,6 +319,83 @@ bool my_jpeg_write(std::string& newFileName, BYTE *pFullBitmap, int width, int h
 }
 
 
+bool my_jpeg_compress(BYTE** ptpCompressedBitmap, BYTE *pFullBitmap, int width, int height, int quality, std::string* perrMsg, unsigned long *pOutSize)
+{
+  struct jpeg_compress_struct cinfo;
+  struct jpeg_error_mgr jerr;
+  JSAMPROW * pjSampleRows = 0;
+  
+  if (pOutSize == NULL || ptpCompressedBitmap == NULL) return false;
+
+  *pOutSize = 0;
+  *ptpCompressedBitmap = NULL;
+
+  /* this is a pointer to one row of image data */
+  cinfo.err = jpeg_std_error(&jerr);
+  jerr.error_exit = my_jpeg_error_exit;
+
+  try
+  {
+    jpeg_create_compress(&cinfo);
+    jpeg_mem_dest(&cinfo, ptpCompressedBitmap, pOutSize);
+
+    /* Setting the parameters of the output file here */
+    cinfo.image_width = width;  
+    cinfo.image_height = height;
+    cinfo.input_components = 3;
+    cinfo.in_color_space = JCS_RGB;
+    /* default compression parameters, we shouldn't be worried about these */
+    jpeg_set_defaults(&cinfo);
+    /* set the quality */
+    jpeg_set_quality(&cinfo, quality, TRUE);
+    /* Now do the compression .. */
+    jpeg_start_compress(&cinfo, TRUE);
+    /* like reading a file, this time write one row at a time */
+    pjSampleRows = new JSAMPROW[height];
+    for (int y = 0; y < height; y++)
+    {
+      pjSampleRows[y] = &pFullBitmap[width * y * 3];
+    }
+    int totalScanlines=0;
+    while ((int) cinfo.next_scanline < height) 
+    {
+      totalScanlines += jpeg_write_scanlines(&cinfo, &pjSampleRows[totalScanlines], height-totalScanlines);
+    }
+    /* similar to read file, clean up after we're done compressing */
+    jpeg_finish_compress(&cinfo);
+    jpeg_destroy_compress(&cinfo);
+  }
+  catch (jpeg_error_mgr* pJerr) 
+  {
+    if (perrMsg)
+    {
+      perrMsg->assign("Error compressing buffer ");
+      perrMsg->append(pJerr->jpeg_message_table[pJerr->msg_code]);
+    }
+    jpeg_destroy_compress(&cinfo);
+    if (pjSampleRows)
+    {
+      delete[] pjSampleRows;
+    }
+    if (*ptpCompressedBitmap)
+    {
+      free(*ptpCompressedBitmap);
+      *ptpCompressedBitmap = NULL;
+    }
+    return false;
+  } 
+  return true;
+}
+
+void my_jpeg_free(BYTE** ptpCompressedBitmap)
+{
+  if (ptpCompressedBitmap != NULL && *ptpCompressedBitmap != NULL)
+  {
+    free(ptpCompressedBitmap);
+    *ptpCompressedBitmap = NULL;
+  }
+}
+
 bool Jpg::unbufferedRead(int x, int y, int width, int height)
 {
   FILE *infile = NULL;

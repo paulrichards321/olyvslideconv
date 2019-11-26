@@ -7,7 +7,7 @@ if WINDOWS
   olyvslideconv_SOURCES += console-mswin.cc
 endif
 olyvslideconv_CXXFLAGS = -I$(top_srcdir)/include $(LIBJPEG_CFLAGS) $(LIBTIFF_CFLAGS) $(OPENCV4_CFLAGS)
-olyvslideconv_LDFLAGS = $(LIBJPEG_LIBS) $(OPENCV4_LIBS) $(LIBTIFF_LIBS)
+olyvslideconv_LDFLAGS = $(LIBJPEG_LIBS) $(OPENCV4_LIBS) $(LIBTIFF_LIBS) $(LIBZIP_LIBS)
 
 svsinfo_SOURCES = imagesupport.cc svsinfo.cc tiffsupport.cc
 svsinfo_CXXFLAGS = -I$(top_srcdir)/include $(LIBTIFF_CFLAGS)

@@ -1,4 +1,4 @@
-AC_INIT([olyvslideconv], 1.0.0, [paulrichards321@gmail.com])
+AC_INIT([olyvslideconv], 1.1.0, [paulrichards321@gmail.com])
 AC_PREREQ(2.59)
 AC_LANG([C++])
 AM_INIT_AUTOMAKE([subdir-objects])
@@ -43,6 +43,9 @@ PKG_CHECK_MODULES([LIBTURBOJPEG], [libturbojpeg >= 1.0.0], [
   my_jpeg_cflags="$LIBTURBOJPEG_CFLAGS"
   my_jpeg_libs="$LIBTURBOJPEG_LIBS"
 ], [my_turbo=0])
+AC_SEARCH_LIBS([zip_source_buffer], [zip], [
+  my_zip_libs="zip"
+], [my_zip=0])
 
 AM_CONDITIONAL([SHELL_WRAPPER], [test "$my_jpeg_libs" = "none" ])
 AM_COND_IF([SHELL_WRAPPER], [AC_MSG_FAILURE([Fatal Error: cannot find jpeg development library. Is it installed?])])
@@ -60,11 +63,20 @@ AM_CONDITIONAL([SHELL_WRAPPER2], [test "$my_tiff_libs" = "none" ])
 AM_COND_IF([SHELL_WRAPPER2], [AC_MSG_FAILURE([Fatal Error: cannot find libtiff development library. Is it installed?])])
 AC_DEFINE([LIBTIFF_CFLAGS], ["$my_tiff_cflags"], [Compiler flags for libtiff])
 AC_DEFINE([LIBTIFF_LIBS], ["$my_tiff_libs"], [Linker libraries for libtiff])
+AC_DEFINE([LIBZIP_LIBS], ["$my_zip_libs"], [Linker libraries for libzip])
 
 AC_LANG_PUSH([C++])
 AC_MSG_CHECKING([whether compiler understands -Wall])
 old_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS -Wall"
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[])],
+  AC_MSG_RESULT(yes),
+  AC_MSG_RESULT(no)
+  CXXFLAGS="$old_CXXFLAGS")
+
+AC_MSG_CHECKING([whether compiler understands -pg])
+old_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="$CXXFLAGS -pg"
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([],[])],
   AC_MSG_RESULT(yes),
   AC_MSG_RESULT(no)
