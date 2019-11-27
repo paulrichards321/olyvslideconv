@@ -391,7 +391,7 @@ void my_jpeg_free(BYTE** ptpCompressedBitmap)
 {
   if (ptpCompressedBitmap != NULL && *ptpCompressedBitmap != NULL)
   {
-    free(ptpCompressedBitmap);
+    free(*ptpCompressedBitmap);
     *ptpCompressedBitmap = NULL;
   }
 }

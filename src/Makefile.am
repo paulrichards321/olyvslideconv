@@ -2,7 +2,7 @@ ACLOCAL_AMFLAGS = -I $(top_srcdir)/m4
 
 bin_PROGRAMS = olyvslideconv svsinfo
 
-olyvslideconv_SOURCES = blend.cc safebmp.cc composite.cc composite-read.cc drawing.cc imagesupport.cc jpgcachesupport.cc jpgsupport.cc olyvslideconv.cc tiffsupport.cc
+olyvslideconv_SOURCES = blend.cc safebmp.cc composite.cc composite-read.cc drawing.cc imagesupport.cc jpgcachesupport.cc jpgsupport.cc olyvslideconv.cc tiffsupport.cc zipsupport.cc
 if WINDOWS
   olyvslideconv_SOURCES += console-mswin.cc
 endif

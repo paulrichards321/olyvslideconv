@@ -53,6 +53,7 @@ set( MAIN_SRC
   src/imagesupport.cc
   src/jpgsupport.cc
   src/tiffsupport.cc
+  src/zipsupport.cc
   src/composite.cc
   src/composite-read.cc
   src/drawing.cc
@@ -65,6 +66,7 @@ set( MAIN_HEADERS
   include/jpgsupport.h
   include/jpgcachesupport.h
   include/tiffsupport.h
+  include/zipsupport.h
   include/blendbkgd.h
 )
 

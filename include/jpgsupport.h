@@ -51,5 +51,6 @@ public:
 
 bool my_jpeg_write(std::string& newFileName, BYTE *pFullBitmap, int width, int height, int quality, std::string* perrMsg);
 bool my_jpeg_compress(BYTE** ptpCompressedBitmap, BYTE *pFullBitmap, int width, int height, int quality, std::string* perrMsg, unsigned long *pOutSize);
+void my_jpeg_free(BYTE** ptpCompressedBitmap);
 
 #endif

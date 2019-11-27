@@ -25,7 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdint>
 #include <cctype>
 #include <sys/stat.h>
-#include <zip.h>
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #include "console-mswin.h"
 #include "getopt-mswin.h"
@@ -36,6 +35,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 #include "jpgsupport.h"
 #include "tiffsupport.h"
+#include "zipsupport.h"
 #include "composite.h"
 #include "safebmp.h"
 #include "blendbkgd.h"
@@ -240,7 +240,7 @@ class SlideConvertor
 protected:
   CompositeSlide *slide;
   Tiff *mTif;
-  zip_t *mZipArchive;
+  ZipFile *mZip;
   std::ofstream *logFile;
   std::string errMsg;
   std::string mOutputFile;
@@ -271,7 +271,7 @@ public:
   #else
   static const char mPathSeparator='/';
   #endif
-  static const char mZipPathSeparator='/';
+  static const int mMaxZipBufferBytes=64000000;
 public:
   SlideConvertor();
   ~SlideConvertor() { closeRelated(); }
@@ -279,7 +279,6 @@ public:
   std::string getErrMsg() { return errMsg; }
   int open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset = -1, int64_t bestYOffset = -1, int outputType = 0, int debugLevel = 0);
   bool my_mkdir(std::string name);
-  bool my_zip_mkdir(std::string name);
   void calcCenters(int outLevel, int64_t& xCenter, int64_t& yCenter);
   int convert();
   int outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2);
@@ -314,33 +313,11 @@ bool SlideConvertor::my_mkdir(std::string name)
 }
 
 
-bool SlideConvertor::my_zip_mkdir(std::string name)
-{
-  std::string nameWithSlash=name;
-  std::size_t lastSlashIndex = name.find_last_of(mZipPathSeparator);
-  if (lastSlashIndex == std::string::npos || lastSlashIndex < name.length())
-  {
-    nameWithSlash.append(1, mZipPathSeparator);
-  }
-  if (zip_name_locate(mZipArchive, nameWithSlash.c_str(), ZIP_FL_ENC_GUESS) < 0)
-  {
-    if (zip_dir_add(mZipArchive, nameWithSlash.c_str(), ZIP_FL_ENC_GUESS)==-1)
-    {
-      zip_error_t * zipError = zip_get_error(mZipArchive);
-      const char* errMsg = zip_error_strerror(zipError);
-      std::cerr << "Failed to create directory '" << name << "' in zip file '" << mOutputFile << "'. reason: " << errMsg << std::endl;
-      return false;
-    }
-  }
-  return true;
-}
-
-
 SlideConvertor::SlideConvertor()
 {
   slide = 0;
   mTif = 0;
-  mZipArchive = 0;
+  mZip = 0;
   logFile = 0;
   mOutputType = 0;
   mCenter = false;
@@ -831,31 +808,39 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     // or the resulting output pyramid is done or on error
     while (round(l.ySrc) < l.srcTotalHeight && l.yDest < l.outputLvlTotalHeight && error==false)
     {
-      std::ostringstream yRootStream;
-      std::string dirPart1;
-      std::string dirPart2;
-      std::string yRoot;
+      std::ostringstream yRootStream, yRootStreamZip;
+      std::string dirPart1, dirPartZip1;
+      std::string dirPart2, dirPartZip2;
+      std::string yRoot, yRootZip;
       
       yRootStream << mFileNameOnly;
       dirPart1 = yRootStream.str();
-      yRootStream << mZipPathSeparator << outLevel;
+      yRootStream << mPathSeparator << outLevel;
       dirPart2 = yRootStream.str();
-      yRootStream << mZipPathSeparator << l.yTile;
+      yRootStream << mPathSeparator << l.yTile;
       yRoot = yRootStream.str();
       if (l.debugLevel > 0)
       {
         // Create the google maps directory structure up to the the y tile
         if (!my_mkdir(dirPart1) || !my_mkdir(dirPart2) || !my_mkdir(yRoot))
         {
+          std::cerr << "Failed to add create directory '" << yRoot << "'. Stopping!" << std::endl;
           error = true;
           break;
         }
       }
+      yRootStreamZip << mFileNameOnly;
+      dirPartZip1 = yRootStreamZip.str();
+      yRootStreamZip << ZipFile::mZipPathSeparator << outLevel;
+      dirPartZip2 = yRootStreamZip.str();
+      yRootStreamZip << ZipFile::mZipPathSeparator << l.yTile;
+      yRootZip = yRootStreamZip.str();
       if (l.outputType == OLYVSLIDE_GOOGLE) 
       {
         // Create the google maps directory structure up to the the y tile
-        if (!my_zip_mkdir(dirPart1) || !my_zip_mkdir(dirPart2) || !my_zip_mkdir(yRoot))
+        if (mZip->addDir(dirPartZip1)==-1 || mZip->addDir(dirPartZip2)==-1 || mZip->addDir(yRootZip)==-1)
         {
+          std::cerr << "Failed to add zip directory '" << yRoot << "' to archive. Reason: " << mZip->getErrorMsg() << std::endl << "Stopping!" << std::endl;
           error = true;
           break;
         }
@@ -866,10 +851,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       for (l.xSrc=l.xStartSrc; round(l.xSrc)<l.srcTotalWidth && l.xDest<l.outputLvlTotalWidth && error==false; l.xSrc += l.grabWidthB) 
       {
         bool writeOk=false;
-        std::ostringstream tileNameStream;
+        std::ostringstream tileNameStream, tileNameStreamZip;
         std::string errMsg;
         if (l.xSrc + l.grabWidthA < 1.0 || l.ySrc + l.grabHeightA < 1.0) continue;
-        tileNameStream << yRoot << mZipPathSeparator << l.xTile << ".jpg";
+        tileNameStream << yRoot << mPathSeparator << l.xTile << ".jpg";
+        tileNameStreamZip << yRootZip << ZipFile::mZipPathSeparator << l.xTile << ".jpg";
         l.tileName = tileNameStream.str();
         l.xSrcRead = l.xSrc;
         l.ySrcRead = l.ySrc;
@@ -953,25 +939,17 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
           {
             BYTE* pJpegBytes = NULL;
             unsigned long outSize = 0;
+            std::string tileName = tileNameStreamZip.str();
             compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, l.quality, &errMsg, &outSize);
-            int zipIndex = -1;
-            zip_source_t* zipSrc = NULL;
-            if (compressOk)
-            {
-              zipSrc = zip_source_buffer(mZipArchive, pJpegBytes, outSize, 1);
-            }
-            if (zipSrc)
-            {
-              zipIndex=zip_file_add(mZipArchive, l.tileName.c_str(), zipSrc, ZIP_FL_OVERWRITE);
-            }
-            if (zipIndex >= 0)
+            if (compressOk && mZip->addFile(tileName, pJpegBytes, outSize)==0)
             {
               writeOk=true;
             }
-            else if (zipSrc)
+            else
             {
-              zip_source_free(zipSrc);
+              error=true;
             }
+            my_jpeg_free(&pJpegBytes);
           }
           else if (l.outputType == OLYVSLIDE_TIF)
           {
@@ -993,12 +971,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             std::string errMsg;
             if (l.outputType == OLYVSLIDE_GOOGLE)
             {
-              if (compressOk)
-              {
-                zip_error_t * zipError = zip_get_error(mZipArchive);
-                errMsg = zip_error_strerror(zipError);
-              }
-              std::cerr << "Failed to write jpeg tile '" << l.tileName << "' reason: " << errMsg << std::endl;
+              std::cerr << "Failed to write jpeg tile '" << l.tileName << "' reason: " << mZip->getErrorMsg() << std::endl;
             }
             else if (l.outputType == OLYVSLIDE_TIF && tiled)
             {
@@ -1035,6 +1008,15 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       if (perc>100)
       {
         perc=100;
+      }
+      if (perc==100 && l.outputType == OLYVSLIDE_GOOGLE)
+      {
+        if (mZip->flushArchive() != 0)
+        {
+          std::cerr << "Failed to write zip file '" << mOutputFile << "' reason: " << mZip->getErrorMsg() << std::endl;
+
+          error = true;
+        }
       }
       if (perc>percOld)
       {
@@ -1239,6 +1221,7 @@ int SlideConvertor::convert2Gmap()
     {
       olympusLevel = 1;
     }
+
     error=outputLevel(olympusLevel, divisor, outLevel, true, false, readWidthL2, readHeightL2, pFullL2Bitmap);
     divisor /= 2;
     outLevel++;
@@ -1315,17 +1298,13 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
   }
   else if (mOutputType == OLYVSLIDE_GOOGLE)
   {
-    zip_error_t zipError;
-    int zipErrorNumeric = 0;
-    mZipArchive = zip_open(outputFile.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &zipErrorNumeric);
-    if (mZipArchive == NULL)
+    mZip = new ZipFile();
+    if (mZip->openArchive(outputFile.c_str(), mMaxZipBufferBytes, ZIP_CREATE | ZIP_TRUNCATE) != 0)
     {
-      memset(&zipError, 0, sizeof(zipError));
-      zip_error_init_with_code(&zipError, zipErrorNumeric);
-      errMsg = zip_error_strerror(&zipError); 
-      std::cerr << "Failed to create zip file '" << outputFile << "'. Reason: " << errMsg << std::endl;
+      std::cerr << "Failed to create zip file '" << outputFile << "'. Reason: " << mZip->getErrorMsg() << std::endl;
       return 2;
     }
+    mZip->setCompression(ZIP_CM_STORE, 0);
     mCenter = true;
   }
   else
@@ -1387,10 +1366,11 @@ void SlideConvertor::closeRelated()
     delete mTif;
     mTif = NULL;
   }
-  if (mZipArchive)
+  if (mZip)
   {
-    zip_close(mZipArchive);
-    mZipArchive = NULL;
+    mZip->closeArchive();
+    delete mZip;
+    mZip = NULL;
   }
   if (logFile)
   {
