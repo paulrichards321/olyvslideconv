@@ -54,10 +54,14 @@ std::string bool2txt(bool cond)
 
 void quickEnv(const char* var, const char* value, int replace)
 {
+  char full_char[512];
   std::string full=var;
   full.append("=");
   full.append(value);
-  putenv(full.c_str());
+  const char * full_const = full.c_str();
+  full_char[0] = 0;
+  strncpy(full_char, full_const, sizeof(full_char)-1);
+  putenv(full_char);
 }
 
 class SlideLevel
