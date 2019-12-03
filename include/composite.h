@@ -27,11 +27,19 @@ THE SOFTWARE.
 #include <iostream>
 #include <cstdint>
 #include "imagesupport.h"
+#ifdef USE_OPENCV
 #include "opencv2/core.hpp"
 #include "opencv2/features2d.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
+#else
+namespace Magick
+{
+#include <MagickCore/MagickCore.h>
+#include <MagickWand/MagickWand.h>
+}
+#endif 
 #include "safebmp.h"
 
 inline char separator()
@@ -183,12 +191,14 @@ public:
   bool isValidObject() { return mValidObject; }
   void initialize();
   void close();
-  bool open(const std::string& inputDir, bool useOpenCV = false, bool doBorderHighlight = false, bool createLog = false, int64_t bestXOffset = -1, int64_t bestYOffset = -1, cv::Mat **pImageL2 = NULL); 
+  bool open(const std::string& inputDir, bool useOpenCV = false, bool doBorderHighlight = false, bool createLog = false, int64_t bestXOffset = -1, int64_t bestYOffset = -1, safeBmp **pImageL2 = NULL); 
   bool read(int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
   bool read(BYTE *pBmp, int level, int direction, int zLevel, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale, int64_t *readWidth, int64_t *readHeight);
   bool allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
-  bool findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, cv::Mat **pImageL2, bool createLog, std::fstream& logFile);
-  bool loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pImageL2, bool createLog, std::fstream& logFile);
+  #ifdef USE_OPENCV
+  bool findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **pImageL2, bool createLog, std::fstream& logFile);
+  #endif
+  bool loadL2Image(int lowerLevel, int higherLevel, safeBmp **pImageL2, bool createLog, std::fstream& logFile);
   bool checkLevel(int level);
   bool checkZLevel(int level, int direction, int zLevel); 
   int getTotalZLevels() { return mValidObject == true ? mTotalZLevels : 0; }
@@ -216,7 +226,7 @@ public:
 void blendLevelsByBkgd(safeBmp *pDest, safeBmp *pSrc, safeBmp *pSrcL2, int64_t x, int64_t y, int64_t rowWidth, int16_t xLimit, int16_t yLimit, int16_t *xFreeMap, int64_t totalXMap, int16_t *yFreeMap, int64_t totalYMap, BYTE bkgdColor, bool tiled);
 
 
-
+#ifdef USE_OPENCV
 class CVMatchCompare 
 {
 public:
@@ -225,7 +235,7 @@ public:
     return match1.distance < match2.distance;
   }
 };
-
+#endif
 
 #endif
 

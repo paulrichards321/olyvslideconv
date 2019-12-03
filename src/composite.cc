@@ -168,7 +168,7 @@ bool CompositeSlide::checkLevel(int level)
 }
 
 
-bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool doBorderHighlight, bool createLog, int64_t bestXOffset, int64_t bestYOffset, cv::Mat **pImageL2)
+bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool doBorderHighlight, bool createLog, int64_t bestXOffset, int64_t bestYOffset, safeBmp **ptpImageL2)
 {
   JpgFileXY jpgxy;
   JpgFileXY jpgxyzstack;                  
@@ -820,13 +820,15 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
 
   int64_t bestXOffsetL0=0, bestXOffsetL1=0;
   int64_t bestYOffsetL0=0, bestYOffsetL1=0;
+  #ifndef USE_MAGICK
   if (lowerLevelFound && higherLevelFound && useOpenCV)
   {
-    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, pImageL2, createLog, logFile);
+    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, ptpImageL2, createLog, logFile);
   }
+  #endif
   if (lowerLevelFound && higherLevelFound && useOpenCV==false)
   {
-    loadL2Image(lowerLevel, higherLevel, pImageL2, createLog, logFile);
+    loadL2Image(lowerLevel, higherLevel, ptpImageL2, createLog, logFile);
 
     double higherRatioX = (double) pHigherConf->mpixelWidth / (double) pHigherConf->mxStepSize; 
     double higherRatioY = (double) pHigherConf->mpixelHeight / (double) pHigherConf->myStepSize;
@@ -932,7 +934,6 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
 
   mbaseWidth = mConf[0]->mtotalWidth;
   mbaseHeight = mConf[0]->mtotalHeight;
-  //std::cout << "Total number of mConf: " << mConf.size() << std::endl;
   std::string previewFileName = inputDir;
   previewFileName += separator();
   previewFileName += "PreviewSlide.jpg";
@@ -963,29 +964,24 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   return true;
 }
 
-
-bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, cv::Mat **pImageL2, bool createLog, std::fstream& logFile)
+#ifndef USE_MAGICK
+bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **ptpImageL2, bool createLog, std::fstream& logFile)
 {
+  if (ptpImageL2 == NULL) return false;
+  *ptpImageL2 = NULL;
+  
   double xMulti0 = mConf[2]->mxAdj / mConf[0]->mxAdj;
   double yMulti0 = mConf[2]->myAdj / mConf[0]->myAdj;
   double xMulti1 = mConf[2]->mxAdj / mConf[1]->mxAdj;
   double yMulti1 = mConf[2]->myAdj / mConf[1]->myAdj;
-  // double xMulti2 = mConf[1]->mxAdj / mConf[2]->mxAdj;
-  // double yMulti2 = mConf[1]->myAdj / mConf[2]->myAdj;
-  //int64_t bestXOffset2, bestYOffset2;
-  //bestXOffset2=(int64_t)((double) (*bestXOffset1 * xMulti2));
-  //bestYOffset2=(int64_t)((double) (*bestYOffset1 * yMulti2));
   IniConf *pLowerConf = mConf[lowerLevel];
   IniConf *pHigherConf = mConf[higherLevel];
   double xZoomOut = pHigherConf->mxAdj / pLowerConf->mxAdj;
   double yZoomOut = pHigherConf->myAdj / pLowerConf->myAdj;
   int64_t simulatedWidth = (int64_t) lround((double)pLowerConf->mdetailedWidth / xZoomOut);
   int64_t simulatedHeight = (int64_t) lround((double)pLowerConf->mdetailedHeight / yZoomOut);
-  //cv::Mat imgTest = cv::imread(pLowerConf->mxyArr[0].mFileName[0], cv::IMREAD_COLOR); 
-  //simulatedWidth += imgTest.cols / xZoomOut;
-  //simulatedHeight += imgTest.rows / yZoomOut;
-
   if (createLog) logFile << "simulatedWidth=" << simulatedWidth << " simulatedHeight=" << simulatedHeight << std::endl;
+  
   cv::Mat* pImgComplete1 = new cv::Mat(simulatedHeight, simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
   if (createLog) logFile << "Reading level " << lowerLevel << " and scaling..." << std::endl;
   std::cout << "Reading level " << lowerLevel << " and scaling..." << std::endl;
@@ -1007,7 +1003,6 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
       //if (xPixelInt > 0) xPixelInt--;
       int64_t yPixelInt = (int64_t) round(yPixel);
       //if (yPixelInt > 0) yPixelInt--;
-      // std::cout << "xPixel=" << xPixelInt << " yPixel=" << yPixelInt << " scaledSize.width=" << scaledSize.width << " scaledSize.height=" << scaledSize.height << std::endl;
       int64_t cols = imgScaled.cols;
       if (xPixelInt + cols > pImgComplete1->cols)
       {
@@ -1018,7 +1013,6 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
       {
         rows -= (yPixelInt + rows) - pImgComplete1->rows;
       }
-      //if (xPixelInt + imgPart.cols <= pImgComplete2->cols && yPixelInt + imgPart.rows <= pImgComplete2->rows)
       if (cols > 0 && rows > 0)
       {
         cv::Rect roi(0, 0, cols, rows);
@@ -1029,13 +1023,6 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
         srcRoi.release();
         destRoi.release();
       }
-      /*
-      if (xPixelInt + scaledSize.width <= pImgComplete1->cols && yPixelInt + scaledSize.height <= pImgComplete1->rows)
-      {
-        cv::Mat imgRoi(*pImgComplete1, cv::Rect(xPixelInt, yPixelInt, (int64_t)scaledSize.width, (int64_t)scaledSize.height)); 
-        imgScaled.copyTo(imgRoi);
-        imgRoi.release();
-      }*/
       else
       {
         std::cerr << "Warning: ROI outside of image boundaries: xPixel: " << xPixelInt << " width: " << scaledSize.width << " > " << pImgComplete1->cols;
@@ -1044,10 +1031,8 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     }
     imgPart.release();
   }
-  //cv::imshow("Scaled Image", imgComplete1);
 
-  cv::Mat* pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  //std::cout << "pImgComplete2 width " << pHigherConf->detailedWidth << " height: " << pHigherConf->detailedHeight,
+  cv::Mat *pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
   if (createLog) logFile << "Reading level " << higherLevel << " and scaling." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
@@ -1058,7 +1043,6 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     //if (xPixelInt > 0) xPixelInt--;
     int64_t yPixelInt = (int64_t) round(yPixel);
     //if (yPixelInt > 0) yPixelInt--;
-    //std::cout << "xPixel=" << xPixelInt << " yPixel=" << yPixelInt << " width=" << imgPart.cols << " height=" << imgPart.rows << std::endl;
     int64_t cols = imgPart.cols;
     if (xPixelInt + cols > pImgComplete2->cols)
     {
@@ -1069,7 +1053,6 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     {
       rows -= (yPixelInt + rows) - pImgComplete2->rows;
     }
-    //if (xPixelInt + imgPart.cols <= pImgComplete2->cols && yPixelInt + imgPart.rows <= pImgComplete2->rows)
     if (cols > 0 && rows > 0)
     {
       cv::Rect roi(0, 0, cols, rows);
@@ -1109,28 +1092,34 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   //std::vector< cv::KeyPoint > matched1, matched2;
   
   //double nn_match_ratio = 0.8;
-  cv::imwrite("imgComplete1.jpg", *pImgComplete1);
-  cv::imwrite("imgComplete2.jpg", *pImgComplete2);
-  if (pImgComplete1->data)
+  if (createLog)
   {
-    pImgComplete1->release();
+    if (pImgComplete1 && pImgComplete1->data)
+      cv::imwrite("imgComplete1.jpg", *pImgComplete1);
+    if (pImgComplete2 && pImgComplete2->data)
+      cv::imwrite("imgComplete2.jpg", *pImgComplete2);
   }
-  delete pImgComplete1;
-  pImgComplete1 = NULL;
-  if (pImageL2)
+  if (pImgComplete1)
   {
-    *pImageL2 = pImgComplete2;
+    if (pImgComplete1->data)
+      pImgComplete1->release();
+    delete pImgComplete1;
   }
-  else
+  if (pImgComplete2 && pImgComplete2->data)
   {
-    if (pImgComplete2->data)
-    {
-      pImgComplete2->release();
-    }
+    safeBmp *pImageL2 = safeBmpAlloc(pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight);
+    *ptpImageL2 = pImageL2; 
+    safeBmp safeImgComplete2Ref;
+    safeBmpInit(&safeImgComplete2Ref, pImgComplete2->data, pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight);
+    safeBmpBGRtoRGBCpy(pImageL2, &safeImgComplete2Ref);
+    pImgComplete2->release();
+    safeBmpFree(&safeImgComplete2Ref);
+  }
+  if (pImgComplete2)
+  {
     delete pImgComplete2;
-    pImgComplete2 = NULL;
   }
-  
+ 
   std::vector<double> diffXs;
   std::vector<double> diffYs;
   std::sort(matches.begin(), matches.end(), CVMatchCompare());
@@ -1141,7 +1130,6 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     diffXs.push_back(diffX);
     diffYs.push_back(diffY);
   }
-  //int64_t medianIndex = 0;
   int64_t bestXOffset, bestYOffset;
   if (mBestXOffset>=0 && mBestYOffset>=0)
   {
@@ -1150,9 +1138,6 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   }
   else if (diffXs.size()>0)
   {
-    //std::sort(diffXs.begin(), diffXs.end());
-    //std::sort(diffYs.begin(), diffYs.end());
-    //int64_t medianIndex = diffXs.size()/2;
     bestXOffset = diffXs[0];
     bestYOffset = diffYs[0];
   }
@@ -1178,36 +1163,20 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   *bestXOffset1 = bestXOffset * xMulti1;
   *bestYOffset1 = bestYOffset * yMulti1;
  
-  //-- Draw only "good" matches
-  /*
-  cv::Mat img_matches;
-  cv::drawMatches( imgComplete1, keypoints1, imgComplete2, keypoints2,
-               good_matches2, img_matches, cv::Scalar::all(-1), cv::Scalar::all(-1),
-               std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS );
-
-  //-- Show detected matches
-  imshow( "Good Matches", img_matches );
-
-  for( int64_t i = 0; i < (int64_t)good_matches.size(); i++ )
-  { 
-    printf( "-- Good Match [%d] Keypoint 1: %d  -- Keypoint 2: %d  \n", i, good_matches[i].queryIdx, good_matches[i].trainIdx ); 
-    printf( "-- Average distances x: %i  y: %i", bestXOffset, bestYOffset);
-  }
-  cv::waitKey(0);
-  */
-  
   return true;
 }
+#endif
 
-
-bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pImageL2, bool createLog, std::fstream& logFile)
+#ifndef USE_MAGICK
+bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, bool createLog, std::fstream& logFile)
 {
   IniConf *pHigherConf = mConf[higherLevel];
   
-  if (pImageL2 == NULL) return false;
+  if (ptpImageL2 == NULL) return false;
+  *ptpImageL2 = NULL;
 
-  cv::Mat* pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  //std::cout << "pImgComplete2 width " << pHigherConf->detailedWidth << " height: " << pHigherConf->detailedHeight,
+  cv::Mat *pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
+
   if (createLog) logFile << "Reading level " << higherLevel << "." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
@@ -1218,7 +1187,6 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pIma
     //if (xPixelInt > 0) xPixelInt--;
     int64_t yPixelInt = (int64_t) round(yPixel);
     //if (yPixelInt > 0) yPixelInt--;
-    //std::cout << "xPixel=" << xPixelInt << " yPixel=" << yPixelInt << " width=" << imgPart.cols << " height=" << imgPart.rows << std::endl;
     int64_t cols = imgPart.cols;
     if (xPixelInt + cols > pImgComplete2->cols)
     {
@@ -1229,7 +1197,6 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pIma
     {
       rows -= (yPixelInt + rows) - pImgComplete2->rows;
     }
-    //if (xPixelInt + imgPart.cols <= pImgComplete2->cols && yPixelInt + imgPart.rows <= pImgComplete2->rows)
     if (cols > 0 && rows > 0)
     {
       cv::Rect roi(0, 0, cols, rows);
@@ -1247,13 +1214,83 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, cv::Mat **pIma
     }
     imgPart.release();
   }
- 
-  //double nn_match_ratio = 0.8;
-  if (createLog) cv::imwrite("imgComplete2.jpg", *pImgComplete2);
-  *pImageL2 = pImgComplete2;
+  if (pImgComplete2 && pImgComplete2->data)
+  {
+    if (createLog) cv::imwrite("imgComplete2.jpg", *pImgComplete2);
+    safeBmp *pImageL2  = safeBmpAlloc(pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight);
+    *ptpImageL2 = pImageL2;
+    safeBmp safeImgComplete2Ref;
+    safeBmpInit(&safeImgComplete2Ref, pImgComplete2->data, pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight);
+    safeBmpBGRtoRGBCpy(pImageL2, &safeImgComplete2Ref);
+    pImgComplete2->release();
+    safeBmpFree(&safeImgComplete2Ref);
+  }
+  if (pImgComplete2)
+  {
+    delete pImgComplete2;
+    pImgComplete2 = NULL;
+  }
   return true;
 }
 
+#else
+
+bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, bool createLog, std::fstream& logFile)
+{
+  IniConf *pHigherConf = mConf[higherLevel];
+  
+  if (ptpImageL2 == NULL) return false;
+
+  Magick::MagickWand *magickWand = Magick::NewMagickWand();
+  Magick::PixelWand *pixelWand = Magick::NewPixelWand();
+  Magick::PixelSetColor(pixelWand, "#ffffff");
+  Magick::MagickSetImageType(magickWand, Magick::TrueColorType);
+  Magick::MagickSetImageDepth(magickWand, 8);
+  Magick::MagickSetImageAlphaChannel(magickWand, Magick::OffAlphaChannel);
+  Magick::MagickSetCompression(magickWand, Magick::NoCompression);
+  Magick::MagickNewImage(magickWand, pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight, pixelWand);
+  Magick::MagickWand *magickWand2 = Magick::NewMagickWand(); 
+  Magick::MagickSetImageType(magickWand2, Magick::TrueColorType);
+  Magick::MagickSetImageDepth(magickWand2, 8);
+  Magick::MagickSetImageAlphaChannel(magickWand2, Magick::OffAlphaChannel);
+  Magick::MagickSetCompression(magickWand2, Magick::NoCompression);
+ 
+  if (createLog) logFile << "Reading level " << higherLevel << "." << std::endl;
+  for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
+  {
+   if (Magick::MagickReadImage(magickWand2, pHigherConf->mxyArr[i].mBaseFileName.c_str())==Magick::MagickFalse)
+    {
+      Magick::ExceptionType exType;
+      std::cerr << "Failed to open '" << pHigherConf->mxyArr[i].mBaseFileName << "'. Reason: " << Magick::MagickGetException(magickWand2, &exType) << std::endl;
+      continue;
+    }  
+    double xPixel=((double)(pHigherConf->mxMax - pHigherConf->mxyArr[i].mx)/(double)pHigherConf->mxAdj);
+    double yPixel=((double)(pHigherConf->myMax - pHigherConf->mxyArr[i].my)/(double)pHigherConf->myAdj);
+    size_t xPixelInt = (size_t) round(xPixel);
+    size_t yPixelInt = (size_t) round(yPixel);
+    Magick::MagickCompositeImage(magickWand, magickWand2, Magick::OverCompositeOp, Magick::MagickTrue, xPixelInt, yPixelInt); 
+    Magick::ClearMagickWand(magickWand2);
+  }
+  if (magickWand2) Magick::DestroyMagickWand(magickWand2);
+  if (createLog) 
+  {
+    Magick::Image* pImgComplete2 = Magick::GetImageFromMagickWand(magickWand);
+    magickWand2 = Magick::NewMagickWandFromImage(pImgComplete2);
+    Magick::MagickSetImageType(magickWand2, Magick::TrueColorType);
+    Magick::MagickSetImageDepth(magickWand2, 8);
+    Magick::MagickSetImageAlphaChannel(magickWand2, Magick::OffAlphaChannel);
+    MagickSetImageCompressionQuality(magickWand2, 90);
+    Magick::MagickWriteImage(magickWand2, "imgComplete2.jpg");
+    Magick::DestroyMagickWand(magickWand2);
+  }
+  safeBmp *pImageL2 = safeBmpAlloc(pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight);
+  *ptpImageL2 = pImageL2;
+  Magick::MagickExportImagePixels(magickWand, 0, 0, pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight, "RGB", Magick::CharPixel, pImageL2->data);
+  Magick::DestroyPixelWand(pixelWand);
+  Magick::DestroyMagickWand(magickWand);
+  return true;
+}
+#endif
 
 bool CompositeSlide::testHeader(BYTE* fileHeader, int64_t length)
 {

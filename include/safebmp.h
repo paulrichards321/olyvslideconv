@@ -29,5 +29,6 @@ void safeBmpFree(safeBmp *bmp);
 safeBmp* safeBmpSrc(BYTE* data, int64_t width, int64_t height);
 void safeBmpCpy(safeBmp *bmpDest, int64_t x_dest, int64_t y_dest, safeBmp *bmp_src, int64_t x_src, int64_t y_src, int64_t cols, int64_t rows);
 inline void safeBmpClear(safeBmp *bmp) { bmp->width = 0; bmp->height = 0; bmp->strideWidth = 0; bmp->data = 0; bmp->freeData = false; bmp->freePtr = false; }
+void safeBmpBGRtoRGBCpy(safeBmp *bmpDest, safeBmp *bmpSrc);
 #endif
 

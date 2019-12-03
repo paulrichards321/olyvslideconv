@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cstdlib>
 #include <cstdint>
 #include <cctype>
+#include <cassert>
 #include <sys/stat.h>
 #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
 #include "console-mswin.h"
@@ -49,6 +50,14 @@ std::string bool2txt(bool cond)
   std::string result = "false";
   if (cond) result = "true";
   return result;
+}
+
+void quickEnv(const char* var, const char* value, int replace)
+{
+  std::string full=var;
+  full.append("=");
+  full.append(value);
+  putenv(full.c_str());
 }
 
 class SlideLevel
@@ -106,8 +115,13 @@ protected:
   int64_t inputTileHeightRead;
   int64_t xMargin;
   int64_t yMargin;
+  #ifndef USE_MAGICK
   int scaleMethod;
   int scaleMethodL2;
+  #else
+  Magick::FilterType scaleMethod;
+  Magick::FilterType scaleMethodL2;
+  #endif
   int64_t totalXSections, totalYSections;
   unsigned char bkgdColor;
   BlendSection **xSubSections;
@@ -138,8 +152,15 @@ protected:
   int64_t yDest;
   int64_t outputLvlTotalWidth;
   int64_t outputLvlTotalHeight;
+#ifndef USE_MAGICK
   cv::Mat *pImgScaled;
   cv::Mat *pImgScaledL2Mini;
+#else
+  Magick::Image *pImgScaled;
+  Magick::Image *pImgScaledL2Mini;
+  Magick::MagickWand *magickWand;
+  Magick::PixelWand *pixelWand;
+#endif
   std::string tileName;
   int writeOutputWidth;
   int writeOutputHeight;
@@ -199,8 +220,13 @@ public:
     inputTileHeightRead=0;
     xMargin=0;
     yMargin=0;
+    #ifndef USE_MAGICK
     scaleMethod=0;
     scaleMethodL2=0;
+    #else
+    scaleMethod=Magick::MitchellFilter;
+    scaleMethodL2=Magick::MitchellFilter;
+    #endif
     totalXSections=0, totalYSections=0;
     bkgdColor=0;
     xSubSections=NULL;
@@ -261,7 +287,7 @@ protected:
   int mTopOutLevel;
   int64_t mMaxSide;
   int mDebugLevel;
-  cv::Mat *mpImageL2;
+  safeBmp *mpImageL2;
   int64_t mTotalXSections, mTotalYSections;
   BlendSection **mxSubSections;
   BlendSection **mySubSections;
@@ -271,7 +297,7 @@ public:
   #else
   static const char mPathSeparator='/';
   #endif
-  static const int mMaxZipBufferBytes=64000000;
+  static const int64_t mMaxZipBufferBytes=2048000000;
 public:
   SlideConvertor();
   ~SlideConvertor() { closeRelated(); }
@@ -281,7 +307,7 @@ public:
   bool my_mkdir(std::string name);
   void calcCenters(int outLevel, int64_t& xCenter, int64_t& yCenter);
   int convert();
-  int outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2);
+  int outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, bool flushArchive, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2);
   int checkFullL2(int64_t *pReadWidthL2, int64_t *pReadHeightL2, safeBmp **pFullL2);
   int convert2Tif();
   int convert2Gmap();
@@ -346,7 +372,6 @@ void SlideConvertor::calcCenters(int outLevel, int64_t &xCenter, int64_t &yCente
   int64_t baseWidth = slide->getActualWidth(mBaseLevel);
   int64_t baseHeight = slide->getActualHeight(mBaseLevel);
   int64_t gmapMaxSide = (1 << mTopOutLevel) * 256;
-  //int64_t gmapMaxSide = pow(2.0, mTopOutLevel) * 256;
   int64_t xBaseCenter = (gmapMaxSide - baseWidth) / 2;
   int64_t yBaseCenter = (gmapMaxSide - baseHeight) / 2;
   
@@ -364,18 +389,23 @@ void SlideConvertor::tileCleanup(SlideLevel &l)
   safeBmpFree(&l.bitmap1);
   if (l.pImgScaled)
   {
+    #ifndef USE_MAGICK
     l.pImgScaled->release();
     delete l.pImgScaled;
+    #endif
     l.pImgScaled = 0;
   }
   if (l.pImgScaledL2Mini)
   {
+    #ifndef USE_MAGICK
     l.pImgScaledL2Mini->release();
     delete l.pImgScaledL2Mini;
+    #endif
     l.pImgScaledL2Mini = 0;
   }
   safeBmpFree(&l.sizedBitmap);
   safeBmpFree(&l.sizedBitmap2);
+  safeBmpFree(&l.safeImgScaled);
   safeBmpFree(&l.safeScaledL2Mini2);
 }
 
@@ -407,16 +437,30 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   }
   safeBmpByteSet(&bitmapL2Mini, l.bkgdColor);
   safeBmpCpy(&bitmapL2Mini, xDestStartL2, yDestStartL2, l.pBitmapL2, xSrcStartL2, ySrcStartL2, (int64_t) l.grabWidthL2, (int64_t) l.grabHeightL2);
+  #ifndef USE_MAGICK
   l.pImgScaledL2Mini = new cv::Mat;
   cv::Mat imgSrc(l.grabHeightL2, l.grabWidthL2, CV_8UC3, bitmapL2Mini.data);
   cv::Size scaledSize(l.finalOutputWidth, l.finalOutputHeight);
   cv::resize(imgSrc, *l.pImgScaledL2Mini, scaledSize, l.xScaleResize, l.yScaleResize, l.scaleMethodL2);
   imgSrc.release();
   safeBmpInit(&l.safeScaledL2Mini, l.pImgScaledL2Mini->data, l.finalOutputWidth, l.finalOutputHeight);
+  #else
+  Magick::MagickSetCompression(l.magickWand, Magick::NoCompression);
+  Magick::MagickSetImageType(l.magickWand, Magick::TrueColorType);
+  Magick::MagickSetImageDepth(l.magickWand, 8);
+  Magick::MagickSetImageAlphaChannel(l.magickWand, Magick::OffAlphaChannel);
+  //Magick::MagickNewImage(l.magickWand, l.grabWidthL2, l.grabHeightL2, l.pixelWand);
+  //Magick::MagickImportImagePixels(l.magickWand, 0, 0, l.grabWidthL2, l.grabHeightL2, "RGB", Magick::CharPixel, bitmapL2Mini.data);
+  Magick::MagickConstituteImage(l.magickWand, l.grabWidthL2, l.grabHeightL2, "RGB", Magick::CharPixel, bitmapL2Mini.data);
+  Magick::MagickResizeImage(l.magickWand, l.finalOutputWidth, l.finalOutputHeight, l.scaleMethodL2);
+  safeBmpAlloc2(&l.safeScaledL2Mini, l.finalOutputWidth, l.finalOutputHeight);
+  Magick::MagickExportImagePixels(l.magickWand, 0, 0, l.finalOutputWidth, l.finalOutputHeight, "RGB", Magick::CharPixel, l.safeScaledL2Mini.data);
+  Magick::ClearMagickWand(l.magickWand);
+  #endif
   
   if (l.finalOutputWidth != l.finalOutputWidth2 || l.finalOutputHeight != l.finalOutputHeight2)
   {
-    assert(safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2));
+    //std::assert(safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2) != NULL);
     safeBmpByteSet(&l.safeScaledL2Mini2, l.bkgdColor);
     safeBmpCpy(&l.safeScaledL2Mini2, 0, 0, &l.safeScaledL2Mini, 0, 0, l.finalOutputWidth, l.finalOutputHeight);
     safeBmpInit(&l.safeScaledL2Mini, l.safeScaledL2Mini2.data, l.finalOutputWidth2, l.finalOutputHeight2);
@@ -510,12 +554,27 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
   // be skipped because no scaling will be done
   if (l.grabWidthRead!=l.inputTileWidthRead || l.grabHeightRead!=l.inputTileHeightRead)
   {
+    #ifndef USE_MAGICK
     l.pImgScaled = new cv::Mat;
     cv::Mat imgSrc(l.grabHeightRead, l.grabWidthRead, CV_8UC3, l.pBitmapSrc->data);
     cv::Size scaledSize(l.inputTileWidthRead, l.inputTileHeightRead);
     cv::resize(imgSrc, *l.pImgScaled, scaledSize, l.xScaleReverse, l.yScaleReverse, l.scaleMethod);
     imgSrc.release();
     safeBmpInit(&l.safeImgScaled, l.pImgScaled->data, l.inputTileWidthRead, l.inputTileHeightRead);  
+    #else
+    Magick::MagickSetCompression(l.magickWand, Magick::NoCompression);
+    Magick::MagickSetImageType(l.magickWand, Magick::TrueColorType);
+    Magick::MagickSetImageDepth(l.magickWand, 8);
+    Magick::MagickSetImageAlphaChannel(l.magickWand, Magick::OffAlphaChannel);
+    //Magick::MagickNewImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, l.pixelWand);
+    //Magick::MagickImportImagePixels(l.magickWand, 0, 0, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
+    Magick::MagickConstituteImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
+    Magick::MagickResizeImage(l.magickWand, l.inputTileWidthRead, l.inputTileHeightRead, l.scaleMethod);
+    safeBmpAlloc2(&l.safeImgScaled, l.inputTileWidthRead, l.inputTileHeightRead);
+    Magick::MagickExportImagePixels(l.magickWand, 0, 0, l.inputTileWidthRead, l.inputTileHeightRead, "RGB", Magick::CharPixel, l.safeImgScaled.data);
+    //safeBmpInit(&l.safeImgScaled, (BYTE*) QueueAuthenticPixels(l.pImgScaled, 0, 0, l.inputTileWidthRead, l.inputTileHeightRead, NULL), l.inputTileWidthRead, l.inputTileHeightRead);  
+    Magick::ClearMagickWand(l.magickWand);
+    #endif
     l.pBitmapSrc = &l.safeImgScaled;
     l.pBitmapFinal = &l.safeImgScaled;
   }
@@ -559,7 +618,7 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
 }
 
 
-int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2)
+int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, bool flushArchive, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2)
 {
   std::ostringstream output;
   SlideLevel l;
@@ -580,8 +639,13 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   l.readHeightL2 = readHeightL2;
   l.pBitmapL2 = pBitmapL2;
   l.bkgdColor=255;
+  #ifndef USE_MAGICK
   l.scaleMethod=cv::INTER_CUBIC;
   l.scaleMethodL2=cv::INTER_CUBIC;
+  #else
+  l.scaleMethod=Magick::MitchellFilter;
+  l.scaleMethodL2=Magick::MitchellFilter;
+  #endif
   l.scanBkgd = scanBkgd;
   l.fillin = (mBlendTopLevel && scanBkgd==false && l.olympusLevel < 2 && slide->checkLevel(2)) ? true : false;
 
@@ -612,7 +676,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.yScaleResize=(double) l.destTotalHeight / (double) l.srcTotalHeightL2;
     if (l.xScaleResize < 1.0 || l.yScaleResize < 1.0)
     {
+      #ifndef USE_MAGICK
       l.scaleMethodL2=cv::INTER_AREA;
+      #else
+      l.scaleMethodL2=Magick::LanczosFilter;
+      #endif
     }
   }
   l.xScaleL2=(double) l.srcTotalWidthL2 / (double) l.srcTotalWidth;
@@ -708,7 +776,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   }
   if (l.xScaleReverse < 1.0 || l.yScaleReverse < 1.0)
   {
+    #ifndef USE_MAGICK
     l.scaleMethod=cv::INTER_AREA;
+    #else
+    l.scaleMethod=Magick::LanczosFilter;
+    #endif
   }
   // Get the quality from the composite level (this does work as long as
   // the ini file specifies it (some ini files do, some don't)
@@ -768,6 +840,15 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
 
   bool error=false;
   time_t timeStart=0, timeLast=0;
+  #ifdef USE_MAGICK
+  l.magickWand = Magick::NewMagickWand();
+  Magick::MagickSetCompression(l.magickWand, Magick::NoCompression);
+  Magick::MagickSetImageType(l.magickWand, Magick::TrueColorType);
+  Magick::MagickSetImageDepth(l.magickWand, 8);
+  Magick::MagickSetImageAlphaChannel(l.magickWand, Magick::OffAlphaChannel);
+  l.pixelWand = Magick::NewPixelWand();
+  Magick::PixelSetColor(l.pixelWand, "#ffffff");
+  #endif
   try
   {
     if ((l.readOkL2 || scanBkgd) && mBlendByRegion==false)
@@ -896,9 +977,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         l.grabHeightRead = round(grabHeightReadDec);
         
         safeBmpClear(&l.bitmap1);
+        safeBmpClear(&l.safeImgScaled);
         safeBmpClear(&l.safeScaledL2Mini2);
         bool allocSuccess = slide->allocate(&l.bitmap1, l.olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
-        assert(allocSuccess);
+        //std::assert(allocSuccess==true);
         safeBmpByteSet(&l.bitmap1, l.bkgdColor);
         l.pBitmapSrc = &l.bitmap1;
         
@@ -1009,7 +1091,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       {
         perc=100;
       }
-      if (perc==100 && l.outputType == OLYVSLIDE_GOOGLE)
+      if (perc==100 && flushArchive && l.outputType == OLYVSLIDE_GOOGLE)
       {
         if (mZip->flushArchive() != 0)
         {
@@ -1053,6 +1135,18 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     error = true;
   }
   safeBmpFree(l.pBitmap4);
+  #ifdef USE_MAGICK
+  if (l.magickWand) 
+  {
+    Magick::DestroyMagickWand(l.magickWand);
+    l.magickWand = NULL;
+  }
+  if (l.pixelWand)
+  {
+    Magick::DestroyPixelWand(l.pixelWand);
+    l.pixelWand = NULL;
+  }
+  #endif
   l.pBitmap4 = NULL;
   timeLast = time(NULL);
   if (error==false)
@@ -1074,11 +1168,11 @@ int SlideConvertor::checkFullL2(int64_t *pReadWidthL2, int64_t *pReadHeightL2, s
   int64_t srcTotalHeightL2 = slide->getActualHeight(2);
   if (srcTotalWidthL2 <= 0 || srcTotalHeightL2 <= 0) return 1;
   if (!mpImageL2) return 2;
-  if (mpImageL2->rows > 0 && mpImageL2->cols > 0 && mpImageL2->data) 
+  if (mpImageL2->width > 0 && mpImageL2->height > 0 && mpImageL2->data) 
   {
-    *pReadWidthL2 = mpImageL2->cols;
-    *pReadHeightL2 = mpImageL2->rows;
-    *pFullL2 = safeBmpSrc(mpImageL2->data, mpImageL2->cols, mpImageL2->rows);
+    *pReadWidthL2 = mpImageL2->width;
+    *pReadHeightL2 = mpImageL2->height;
+    *pFullL2 = mpImageL2;
     return 0;
   }
   return 1;
@@ -1122,7 +1216,7 @@ int SlideConvertor::convert2Tif()
   int divisor = 1;
   int step = 1;
   
-  error=outputLevel(mBaseLevel, divisor, step, true, true, readWidthL2, readHeightL2, pFullL2Bitmap);
+  error=outputLevel(mBaseLevel, divisor, step, true, true, false, readWidthL2, readHeightL2, pFullL2Bitmap);
 
   while (divisor != maxDivisor && error==0)
   {
@@ -1158,20 +1252,13 @@ int SlideConvertor::convert2Tif()
         divisor = maxDivisor;
         break;
     }
-    error=outputLevel(olympusLevel, divisor, step, tiled, false, readWidthL2, readHeightL2, pFullL2Bitmap);
+    error=outputLevel(olympusLevel, divisor, step, tiled, false, false, readWidthL2, readHeightL2, pFullL2Bitmap);
     step++;
   }
   if (error == 0 && step > 1)
   {
     std::cout << std::endl << "All Levels Completed." << std::endl;
   }
-  if (mpImageL2)
-  {
-    mpImageL2->release();
-    delete mpImageL2;
-    mpImageL2 = NULL;
-  }
-  safeBmpFree(pFullL2Bitmap);
   return error;
 }
 
@@ -1209,7 +1296,7 @@ int SlideConvertor::convert2Gmap()
   int64_t divisor = 1 << mTopOutLevel;
   int outLevel = 0;
 
-  error=outputLevel(mBaseLevel, 1, 0, true, true, readWidthL2, readHeightL2, pFullL2Bitmap);
+  error=outputLevel(mBaseLevel, 1, 0, true, true, false, readWidthL2, readHeightL2, pFullL2Bitmap);
   while (outLevel <= mTopOutLevel && error==0)
   {
     int olympusLevel;
@@ -1221,8 +1308,8 @@ int SlideConvertor::convert2Gmap()
     {
       olympusLevel = 1;
     }
-
-    error=outputLevel(olympusLevel, divisor, outLevel, true, false, readWidthL2, readHeightL2, pFullL2Bitmap);
+    bool flushArchive = (outLevel == mTopOutLevel ? true : false);
+    error=outputLevel(olympusLevel, divisor, outLevel, true, false, flushArchive, readWidthL2, readHeightL2, pFullL2Bitmap);
     divisor /= 2;
     outLevel++;
   }
@@ -1230,13 +1317,6 @@ int SlideConvertor::convert2Gmap()
   {
     std::cout << std::endl << "All Levels Completed." << std::endl;
   }
-  if (mpImageL2)
-  {
-    mpImageL2->release();
-    delete mpImageL2;
-    mpImageL2 = NULL;
-  }
-  safeBmpFree(pFullL2Bitmap);
   return error;
 }
 
@@ -1258,6 +1338,7 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
   {
     return 1;
   }
+
   mOutputFile = outputFile;
   mOutputDir = outputFile;
   mOutputType = outputType;
@@ -1356,8 +1437,7 @@ void SlideConvertor::closeRelated()
 {
   if (mpImageL2)
   {
-    mpImageL2->release();
-    delete mpImageL2;
+    safeBmpFree(mpImageL2);
     mpImageL2 = NULL;
   }
   if (mTif)
@@ -1525,7 +1605,9 @@ int main(int argc, char** argv)
         quality = getIntOpt(optarg, invalidOpt);
         break;
       case 'o':
+        #ifndef USE_MAGICK
         useOpenCV = getBoolOpt(optarg, invalidOpt);
+        #endif
         break;
       case 'x':
         bestXOffset = getIntOpt(optarg, invalidOpt);
@@ -1615,7 +1697,18 @@ int main(int argc, char** argv)
   {
     std::cout << "Set bestYOffset: default" << std::endl;
   }
-
+  
+  #ifdef USE_MAGICK
+  quickEnv("MAGICK_CODER_MODULE_PATH", MAGICK_CODER_MODULE_PATH, 1);
+  quickEnv("MAGICK_CODER_FILTER_PATH", MAGICK_CODER_FILTER_PATH, 1);
+  quickEnv("MAGICK_HOME", MAGICK_HOME, 1);
+  quickEnv("MAGICK_MAP_LIMIT", MAGICK_MAP_LIMIT, 0);
+  quickEnv("MAGICK_MEMORY_LIMIT", MAGICK_MEMORY_LIMIT, 0);
+  quickEnv("MAGICK_DISK_LIMIT", MAGICK_DISK_LIMIT, 0);
+  quickEnv("MAGICK_AREA_LIMIT", MAGICK_AREA_LIMIT, 0);
+  Magick::MagickWandGenesis();
+  #endif
+  
   error=slideConv.open(infile.c_str(), outfile.c_str(), useOpenCV, blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, createLog, quality, bestXOffset, bestYOffset, outputType, debugLevel);
   if (error==0)
   {
@@ -1645,6 +1738,10 @@ int main(int argc, char** argv)
     error++;
   }
   slideConv.closeRelated();
+  
+  #ifdef USE_MAGICK
+  Magick::MagickWandTerminus();
+  #endif
   return error;
 }
 

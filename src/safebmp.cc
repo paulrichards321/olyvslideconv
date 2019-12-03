@@ -157,3 +157,88 @@ void safeBmpCpy(safeBmp *bmpDest, int64_t xDest, int64_t yDest, safeBmp *bmpSrc,
   }
 }
 
+
+void safeBmpBGRtoRGBCpy(safeBmp *bmpDest, safeBmp *bmpSrc)
+{
+  int64_t xSrc = 0;
+  int64_t ySrc = 0;
+  int64_t xDest = 0;
+  int64_t yDest = 0;
+  int64_t cols = bmpSrc->width;
+  int64_t rows = bmpSrc->height;
+
+  int64_t xEnd = xSrc + cols;
+  if (xSrc < 0)
+  {
+    cols += xSrc;
+    xSrc = 0;
+  }
+  if (xEnd < 0 || xSrc > bmpSrc->width || cols <= 0 ||
+      xDest > bmpDest->width) 
+  {
+    return;
+  }
+  if (xEnd > bmpSrc->width)
+  {
+    cols = bmpSrc->width - xSrc;
+    if (cols < 0) return;
+  }
+  int64_t yEnd = ySrc + rows;
+  if (ySrc < 0)
+  {
+    rows += ySrc;
+    ySrc = 0;
+  }
+  if (yEnd < 0 || ySrc > bmpSrc->height || rows <= 0 ||
+      yDest > bmpDest->height) 
+  {
+    return;
+  }
+  if (yEnd > bmpSrc->height)
+  {
+    rows = bmpSrc->height - ySrc;
+  }
+  if (xDest < 0)
+  {
+    cols += xDest;
+    xDest = 0;
+  }
+  if (xDest + cols > bmpDest->width)
+  {
+    cols = bmpDest->width - xDest;
+  }
+  if (yDest < 0)
+  {
+    rows += yDest;
+    yDest = 0;
+  }
+  if (yDest + rows > bmpDest->height)
+  {
+    rows = bmpDest->height - yDest;
+  }
+  if (rows < 0 || cols <= 0) return;
+  int64_t srcRowWidth = bmpSrc->strideWidth;
+  int64_t destRowWidth = bmpDest->strideWidth;
+  int64_t xSrcOffset = xSrc * 3;
+  int64_t xDestOffset = xDest * 3;
+  int64_t colCopySize=cols*3;
+  BYTE *destData = (BYTE*) bmpDest->data;
+  BYTE *srcData = (BYTE*) bmpSrc->data;
+  for (int64_t y = 0; y < rows; y++)
+  {
+    int64_t src = ((y+ySrc) * srcRowWidth) + xSrcOffset;
+    int64_t dest = ((y+yDest) * destRowWidth) + xDestOffset;
+    //memcpy(&destData[dest], &srcData[src], colCopySize);
+    int64_t end = src + colCopySize;
+    while (src < end)
+    {
+      // BGR to RGB
+      destData[dest+2] = srcData[src];
+      destData[dest+1] = srcData[src+1];
+      destData[dest] = srcData[src+2];
+      dest += 3;
+      src += 3;
+    }
+  }
+}
+
