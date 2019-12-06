@@ -1250,15 +1250,14 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
   Magick::MagickSetCompression(magickWand, Magick::NoCompression);
   Magick::MagickNewImage(magickWand, pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight, pixelWand);
   Magick::MagickWand *magickWand2 = Magick::NewMagickWand(); 
-  Magick::MagickSetImageType(magickWand2, Magick::TrueColorType);
-  Magick::MagickSetImageDepth(magickWand2, 8);
-  Magick::MagickSetImageAlphaChannel(magickWand2, Magick::OffAlphaChannel);
-  Magick::MagickSetCompression(magickWand2, Magick::NoCompression);
- 
+
   if (createLog) logFile << "Reading level " << higherLevel << "." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
-   if (Magick::MagickReadImage(magickWand2, pHigherConf->mxyArr[i].mBaseFileName.c_str())==Magick::MagickFalse)
+    Magick::MagickSetImageType(magickWand2, Magick::TrueColorType);
+    Magick::MagickSetImageDepth(magickWand2, 8);
+    Magick::MagickSetImageAlphaChannel(magickWand2, Magick::OffAlphaChannel);
+    if (Magick::MagickReadImage(magickWand2, pHigherConf->mxyArr[i].mBaseFileName.c_str())==Magick::MagickFalse)
     {
       Magick::ExceptionType exType;
       std::cerr << "Failed to open '" << pHigherConf->mxyArr[i].mBaseFileName << "'. Reason: " << Magick::MagickGetException(magickWand2, &exType) << std::endl;

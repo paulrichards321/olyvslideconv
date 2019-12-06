@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 2.8)
-project( olyvslideconv LANGUAGES CXX )
+project( olyvslideconv LANGUAGES C CXX )
 
 find_package(PkgConfig)
 find_package(OpenCV)
 find_package(ImageMagick COMPONENTS MagickCore MagickWand)
 find_package(TIFF)
 find_package(JPEG)
+find_package(Threads)
 
 if (JPEG_FOUND)
   set (LIBJPEG_LIBRARIES ${JPEG_LIBRARY})
@@ -39,13 +40,10 @@ if ("${USE_MAGICK}" STREQUAL "")
   endif()
 else()
   add_definitions(-DUSE_MAGICK=1)
-  add_definitions(-DMAGICKCORE_QUANTUM_DEPTH=8)
-  add_definitions(-DMAGICKCORE_HDRI_ENABLE=0)
-  add_definitions(-DMAGICK_CODER_MODULE_PATH="/mingw64/lib/ImageMagick-7.0.8/modules-Q16HDRI/coders")
-  add_definitions(-DMAGICK_CODER_FILTER_PATH="/mingw64/lib/ImageMagick-7.0.8/modules-Q16HDRI/filters")
-  add_definitions(-DMAGICK_HOME="/mingw64/lib/ImageMagick-7.0.8")
-  add_definitions(-DMAGICK_MAP_LIMIT="6GB")
-  add_definitions(-DMAGICK_MEMORY_LIMIT="6GB")
+  add_definitions(-DMAGICKCORE_QUANTUM_DEPTH=16)
+  add_definitions(-DMAGICKCORE_HDRI_ENABLE=1)
+  add_definitions(-DMAGICK_MAP_LIMIT="8GB")
+  add_definitions(-DMAGICK_MEMORY_LIMIT="8GB")
   add_definitions(-DMAGICK_DISK_LIMIT="32GB")
   add_definitions(-DMAGICK_AREA_LIMIT="100MPP")
   if (ImageMagick_MagickWand_FOUND AND ImageMagick_MagickCore_FOUND)
@@ -77,7 +75,7 @@ set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_CXX_EXTENSIONS OFF)
 set (CMAKE_CXX_STANDARD_REQUIRED YES)
 
-set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -O2")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -O0")
 
 set( MAIN_SRC
   src/safebmp.cc
@@ -115,18 +113,20 @@ set ( INFO_HEADERS
   include/jpgsupport.h
 )
 
-if (WIN32 OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+if (WIN32 OR WIN64 OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   list(APPEND MAIN_HEADERS include/console-mswin.h)
   list(APPEND MAIN_HEADERS include/getopt-mswin.h)
   list(APPEND MAIN_SRC src/console-mswin.cc)
+  if (USE_MAGICK)
+    list(APPEND MAIN_SRC src/initmagick.cc)
+  endif()
 else()
   list(APPEND MAIN_HEADERS include/console-unix.h)
 endif()
 
-
 include_directories( ${MAGICKCORE_INCLUDE_DIRS} ${MAGICKWAND_INCLUDE_DIRS} ${OPENCV_INCLUDE_DIRS} ${LIBJPEG_INCLUDE_DIRS} ${LIBTIFF_INCLUDE_DIRS} ${LIBZIP_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 add_executable( olyvslideconv ${MAIN_SRC} ${MAIN_HEADERS} )
-target_link_libraries( olyvslideconv ${MAGICKCORE_LIBRARIES} ${MAGICKWAND_LIBRARIES} ${OPENCV_LIBRARIES} ${LIBTIFF_LIBRARIES} ${LIBJPEG_LIBRARIES} ${LIBZIP_LIBRARIES})
+target_link_libraries( olyvslideconv ${MAGICKWAND_LIBRARIES} ${MAGICKCORE_LIBRARIES} ${OPENCV_LIBRARIES} ${LIBTIFF_LIBRARIES} ${LIBJPEG_LIBRARIES} ${LIBZIP_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable( svsinfo ${INFO_SRC} )
 target_link_libraries( svsinfo ${LIBTIFF_LIBRARIES})

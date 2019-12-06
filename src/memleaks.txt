@@ -1,0 +1,326 @@
+All Levels Completed.
+==9977== 
+==9977== Process terminating with default action of signal 27 (SIGPROF)
+==9977==    at 0xDDA9673: __open_nocancel (in /usr/lib64/libc-2.28.so)
+==9977==    by 0xDDB5B0F: write_gmon (in /usr/lib64/libc-2.28.so)
+==9977==    by 0xDDB630D: _mcleanup (in /usr/lib64/libc-2.28.so)
+==9977==    by 0xDCF10CB: __run_exit_handlers (in /usr/lib64/libc-2.28.so)
+==9977==    by 0xDCF11FF: exit (in /usr/lib64/libc-2.28.so)
+==9977==    by 0xDCDA819: (below main) (in /usr/lib64/libc-2.28.so)
+==9977== 
+==9977== HEAP SUMMARY:
+==9977==     in use at exit: 41,430,082 bytes in 126,650 blocks
+==9977==   total heap usage: 4,744,060 allocs, 4,617,410 frees, 25,522,061,216 bytes allocated
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 96 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468DA6: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B2AE: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 97 of 298
+==9977==    at 0x4C30DC8: malloc (vg_replace_malloc.c:308)
+==9977==    by 0x4C333E3: realloc (vg_replace_malloc.c:836)
+==9977==    by 0x106DE4FD: g_realloc (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468C98: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B2AE: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 98 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468DA6: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B311: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 99 of 298
+==9977==    at 0x4C30DC8: malloc (vg_replace_malloc.c:308)
+==9977==    by 0x4C333E3: realloc (vg_replace_malloc.c:836)
+==9977==    by 0x106DE4FD: g_realloc (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468C98: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B311: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 100 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468DA6: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1045546F: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B51: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 101 of 298
+==9977==    at 0x4C30DC8: malloc (vg_replace_malloc.c:308)
+==9977==    by 0x4C333E3: realloc (vg_replace_malloc.c:836)
+==9977==    by 0x106DE4FD: g_realloc (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468C98: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1045546F: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B51: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 102 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468DA6: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x104500E3: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B56: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 16 bytes in 1 blocks are possibly lost in loss record 103 of 298
+==9977==    at 0x4C30DC8: malloc (vg_replace_malloc.c:308)
+==9977==    by 0x4C333E3: realloc (vg_replace_malloc.c:836)
+==9977==    by 0x106DE4FD: g_realloc (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468C98: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C028: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x104500E3: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B56: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 96 bytes in 1 blocks are possibly lost in loss record 245 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x104680E1: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046829A: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444A6E: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977==    by 0x1FFEFFFBE0: ???
+==9977== 
+==9977== 96 bytes in 1 blocks are possibly lost in loss record 246 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x104680E1: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046829A: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C01A: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B2AE: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 96 bytes in 1 blocks are possibly lost in loss record 247 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x104680E1: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046829A: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C01A: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B311: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 96 bytes in 1 blocks are possibly lost in loss record 248 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x104680E1: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046829A: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C01A: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1045546F: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B51: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 96 bytes in 1 blocks are possibly lost in loss record 249 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x104680E1: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046829A: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C01A: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x104500E3: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B56: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 132 bytes in 1 blocks are possibly lost in loss record 254 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x104696EF: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C0A8: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B2AE: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 132 bytes in 1 blocks are possibly lost in loss record 255 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x104696EF: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C0A8: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1044B311: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B47: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 148 bytes in 1 blocks are possibly lost in loss record 256 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10469508: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C0A8: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1045546F: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B51: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 148 bytes in 1 blocks are possibly lost in loss record 257 of 298
+==9977==    at 0x4C3319A: calloc (vg_replace_malloc.c:762)
+==9977==    by 0x106DE49D: g_malloc0 (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10469508: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C0A8: g_type_register_fundamental (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x104500E3: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B56: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977==    by 0x1FFEFFFBD7: ???
+==9977== 
+==9977== 184 bytes in 1 blocks are possibly lost in loss record 262 of 298
+==9977==    at 0x4C33399: realloc (vg_replace_malloc.c:836)
+==9977==    by 0x106DE4FD: g_realloc (in /usr/lib64/libglib-2.0.so.0.5600.4)
+==9977==    by 0x10468054: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1046C28C: g_type_register_static (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10457194: g_param_type_register_static (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x1045962A: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x10444B5B: ??? (in /usr/lib64/libgobject-2.0.so.0.5600.4)
+==9977==    by 0x400FD29: call_init.part.0 (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x400FE29: _dl_init (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x4001069: ??? (in /usr/lib64/ld-2.28.so)
+==9977==    by 0x3: ???
+==9977==    by 0x1FFEFFFBBA: ???
+==9977== 
+==9977== 16,384 bytes in 8 blocks are possibly lost in loss record 287 of 298
+==9977==    at 0x4C31C13: operator new[](unsigned long) (vg_replace_malloc.c:433)
+==9977==    by 0x417461: my_jpeg_compress(unsigned char**, unsigned char*, int, int, int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >*, unsigned long*) (jpgsupport.cc:354)
+==9977==    by 0x40FB68: SlideConvertor::outputLevel(int, int, int, bool, bool, bool, long, long, safeBmp*) (olyvslideconv.cc:1029)
+==9977==    by 0x412E6B: SlideConvertor::convert2Gmap() (olyvslideconv.cc:1316)
+==9977==    by 0x40AD7A: main (olyvslideconv.cc:1725)
+==9977== 
+==9977== 483,776 (319,552 direct, 164,224 indirect) bytes in 9,986 blocks are definitely lost in loss record 293 of 298
+==9977==    at 0x4C31506: operator new(unsigned long) (vg_replace_malloc.c:344)
+==9977==    by 0x42C35D: blendLevelsScan(BlendBkgdArgs*) (blend.cc:142)
+==9977==    by 0x40BB6B: SlideConvertor::scanSrcTileBkgd(SlideLevel&) (olyvslideconv.cc:532)
+==9977==    by 0x40FF76: SlideConvertor::outputLevel(int, int, int, bool, bool, bool, long, long, safeBmp*) (olyvslideconv.cc:1013)
+==9977==    by 0x412E05: SlideConvertor::convert2Gmap() (olyvslideconv.cc:1303)
+==9977==    by 0x40AD7A: main (olyvslideconv.cc:1725)
+==9977== 
+==9977== 490,624 (245,312 direct, 245,312 indirect) bytes in 7,666 blocks are definitely lost in loss record 294 of 298
+==9977==    at 0x4C31506: operator new(unsigned long) (vg_replace_malloc.c:344)
+==9977==    by 0x42C319: blendLevelsScan(BlendBkgdArgs*) (blend.cc:163)
+==9977==    by 0x40BB6B: SlideConvertor::scanSrcTileBkgd(SlideLevel&) (olyvslideconv.cc:532)
+==9977==    by 0x40FF76: SlideConvertor::outputLevel(int, int, int, bool, bool, bool, long, long, safeBmp*) (olyvslideconv.cc:1013)
+==9977==    by 0x412E05: SlideConvertor::convert2Gmap() (olyvslideconv.cc:1303)
+==9977==    by 0x40AD7A: main (olyvslideconv.cc:1725)
+==9977== 
+==9977== 892,544 (435,008 direct, 457,536 indirect) bytes in 13,594 blocks are definitely lost in loss record 296 of 298
+==9977==    at 0x4C31506: operator new(unsigned long) (vg_replace_malloc.c:344)
+==9977==    by 0x42C2D1: blendLevelsScan(BlendBkgdArgs*) (blend.cc:175)
+==9977==    by 0x40BB6B: SlideConvertor::scanSrcTileBkgd(SlideLevel&) (olyvslideconv.cc:532)
+==9977==    by 0x40FF76: SlideConvertor::outputLevel(int, int, int, bool, bool, bool, long, long, safeBmp*) (olyvslideconv.cc:1013)
+==9977==    by 0x412E05: SlideConvertor::convert2Gmap() (olyvslideconv.cc:1303)
+==9977==    by 0x40AD7A: main (olyvslideconv.cc:1725)
+==9977== 
+==9977== 1,579,712 (956,960 direct, 622,752 indirect) bytes in 29,905 blocks are definitely lost in loss record 297 of 298
+==9977==    at 0x4C31506: operator new(unsigned long) (vg_replace_malloc.c:344)
+==9977==    by 0x42C399: blendLevelsScan(BlendBkgdArgs*) (blend.cc:134)
+==9977==    by 0x40BB6B: SlideConvertor::scanSrcTileBkgd(SlideLevel&) (olyvslideconv.cc:532)
+==9977==    by 0x40FF76: SlideConvertor::outputLevel(int, int, int, bool, bool, bool, long, long, safeBmp*) (olyvslideconv.cc:1013)
+==9977==    by 0x412E05: SlideConvertor::convert2Gmap() (olyvslideconv.cc:1303)
+==9977==    by 0x40AD7A: main (olyvslideconv.cc:1725)
+==9977== 
+==9977== 37,662,720 (37,640,192 direct, 22,528 indirect) bytes in 18,379 blocks are definitely lost in loss record 298 of 298
+==9977==    at 0x4C31C13: operator new[](unsigned long) (vg_replace_malloc.c:433)
+==9977==    by 0x417461: my_jpeg_compress(unsigned char**, unsigned char*, int, int, int, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >*, unsigned long*) (jpgsupport.cc:354)
+==9977==    by 0x40FB68: SlideConvertor::outputLevel(int, int, int, bool, bool, bool, long, long, safeBmp*) (olyvslideconv.cc:1029)
+==9977==    by 0x412E6B: SlideConvertor::convert2Gmap() (olyvslideconv.cc:1316)
+==9977==    by 0x40AD7A: main (olyvslideconv.cc:1725)
+==9977== 
+==9977== LEAK SUMMARY:
+==9977==    definitely lost: 39,597,024 bytes in 79,530 blocks
+==9977==    indirectly lost: 1,512,352 bytes in 46,568 blocks
+==9977==      possibly lost: 17,736 bytes in 26 blocks
+==9977==    still reachable: 302,970 bytes in 526 blocks
+==9977==                       of which reachable via heuristic:
+==9977==                         newarray           : 1,536 bytes in 16 blocks
+==9977==         suppressed: 0 bytes in 0 blocks
+==9977== Reachable blocks (those to which a pointer was found) are not shown.
+==9977== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==9977== 
+==9977== For counts of detected and suppressed errors, rerun with: -v
+==9977== ERROR SUMMARY: 24 errors from 24 contexts (suppressed: 0 from 0)
+

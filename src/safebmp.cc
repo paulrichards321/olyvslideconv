@@ -1,4 +1,8 @@
+#include <cassert>
 #include <cstring>
+#include <new>
+#include <cstdlib>
+#include <iostream>
 #include "safebmp.h"
 
 safeBmp * safeBmpAlloc(int64_t width, int64_t height)
@@ -13,11 +17,18 @@ safeBmp * safeBmpAlloc(int64_t width, int64_t height)
   bmp->height = height;
   bmp->width = width;
   bmp->strideWidth = strideWidth;
-  bmp->data = new BYTE[strideWidth * height];
-  if (bmp->data == NULL) 
+  try 
   {
-    delete bmp;
-    return NULL;
+    bmp->data = new BYTE[strideWidth * height];
+  }
+  catch (std::bad_alloc &xa)
+  {
+    bmp->data = NULL;
+  }
+  if (bmp->data == NULL)
+  {
+    std::cerr << "Failed to allocate image of memory size=" << ((strideWidth * height) / 1024) << " kb." << std::endl;
+    exit(1);
   }
   bmp->freeData = true;
   bmp->freePtr = true;
@@ -28,11 +39,24 @@ safeBmp * safeBmpAlloc(int64_t width, int64_t height)
 BYTE* safeBmpAlloc2(safeBmp *bmp, int64_t width, int64_t height)
 {
   //int64_t stideWidth = cairoFormatStrideForWidth(CAIROFORMATRGB24, width);
+  bmp->data = NULL;
   int64_t strideWidth = width * 3;
   bmp->strideWidth = strideWidth;
   bmp->height = height;
   bmp->width = width;
-  bmp->data = new BYTE[strideWidth * height];
+  try
+  {
+    bmp->data = new BYTE[strideWidth * height];
+  }
+  catch (std::bad_alloc &xa)
+  {
+    bmp->data = NULL;
+  }
+  if (bmp->data == NULL)
+  {
+    std::cerr << "Failed to allocate image of memory size=" << ((strideWidth * height) / 1024) << " kb." << std::endl;
+    exit(1);
+  }
   bmp->freeData = true;
   bmp->freePtr = false;
   return bmp->data;
@@ -92,6 +116,8 @@ void safeBmpUint32Set(safeBmp *bmp, uint32_t value)
 
 void safeBmpCpy(safeBmp *bmpDest, int64_t xDest, int64_t yDest, safeBmp *bmpSrc, int64_t xSrc, int64_t ySrc, int64_t cols, int64_t rows)
 {
+  //assert(bmpSrc->data);
+  //assert(bmpDest->data);
   int64_t xEnd = xSrc + cols;
   if (xSrc < 0)
   {

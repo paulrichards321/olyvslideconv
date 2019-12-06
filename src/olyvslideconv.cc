@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cctype>
 #include <cassert>
 #include <sys/stat.h>
-#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
 #include "console-mswin.h"
 #include "getopt-mswin.h"
 #else
@@ -61,6 +61,7 @@ void quickEnv(const char* var, const char* value, int replace)
   const char * full_const = full.c_str();
   full_char[0] = 0;
   strncpy(full_char, full_const, sizeof(full_char)-1);
+  std::cout << "ENV: " << full_char << std::endl;
   putenv(full_char);
 }
 
@@ -464,9 +465,10 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   
   if (l.finalOutputWidth != l.finalOutputWidth2 || l.finalOutputHeight != l.finalOutputHeight2)
   {
-    //std::assert(safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2) != NULL);
+    safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2);
     safeBmpByteSet(&l.safeScaledL2Mini2, l.bkgdColor);
     safeBmpCpy(&l.safeScaledL2Mini2, 0, 0, &l.safeScaledL2Mini, 0, 0, l.finalOutputWidth, l.finalOutputHeight);
+    safeBmpFree(&l.safeScaledL2Mini);
     safeBmpInit(&l.safeScaledL2Mini, l.safeScaledL2Mini2.data, l.finalOutputWidth2, l.finalOutputHeight2);
   }
   if (l.debugLevel > 0)
@@ -984,7 +986,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         safeBmpClear(&l.safeImgScaled);
         safeBmpClear(&l.safeScaledL2Mini2);
         bool allocSuccess = slide->allocate(&l.bitmap1, l.olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
-        //std::assert(allocSuccess==true);
+        assert(allocSuccess);
         safeBmpByteSet(&l.bitmap1, l.bkgdColor);
         l.pBitmapSrc = &l.bitmap1;
         
@@ -1701,11 +1703,11 @@ int main(int argc, char** argv)
   {
     std::cout << "Set bestYOffset: default" << std::endl;
   }
-  
   #ifdef USE_MAGICK
-  quickEnv("MAGICK_CODER_MODULE_PATH", MAGICK_CODER_MODULE_PATH, 1);
-  quickEnv("MAGICK_CODER_FILTER_PATH", MAGICK_CODER_FILTER_PATH, 1);
-  quickEnv("MAGICK_HOME", MAGICK_HOME, 1);
+  #if defined(__MINGW32__) || defined(__MINGW64__)
+  quickEnv("MAGICK_CODER_MODULE_PATH", getMagickCoreCoderPath(), 1);
+  quickEnv("MAGICK_CODER_FILTER_PATH", getMagickCoreFilterPath(), 1);
+  #endif
   quickEnv("MAGICK_MAP_LIMIT", MAGICK_MAP_LIMIT, 0);
   quickEnv("MAGICK_MEMORY_LIMIT", MAGICK_MEMORY_LIMIT, 0);
   quickEnv("MAGICK_DISK_LIMIT", MAGICK_DISK_LIMIT, 0);

@@ -239,11 +239,9 @@ bool Jpg::read(int x, int y, int width, int height, bool passedGrayscale)
   }
   catch (std::bad_alloc &e) 
   {
-    mpBitmap = 0;
-    cleanup();
     merrMsg << "Insufficient memory to decompress '" << mfileName;
     merrMsg << "' into memory";
-    return false;
+    exit(1);
   }
   return true;
 }
@@ -297,6 +295,7 @@ bool my_jpeg_write(std::string& newFileName, BYTE *pFullBitmap, int width, int h
     jpeg_finish_compress(&cinfo);
     jpeg_destroy_compress(&cinfo);
     fclose(outfile);
+    delete[] pjSampleRows;
   }
   catch (jpeg_error_mgr* pJerr) 
   {
@@ -315,6 +314,12 @@ bool my_jpeg_write(std::string& newFileName, BYTE *pFullBitmap, int width, int h
     }
     return false;
   } 
+  catch (std::bad_alloc &e) 
+  {
+    std::cerr << "Fatal Error: Not enough memory to decompress '" << newFileName;
+    std::cerr << "' into memory!";
+    exit(1);
+  }
   return true;
 }
 
@@ -364,6 +369,7 @@ bool my_jpeg_compress(BYTE** ptpCompressedBitmap, BYTE *pFullBitmap, int width, 
     /* similar to read file, clean up after we're done compressing */
     jpeg_finish_compress(&cinfo);
     jpeg_destroy_compress(&cinfo);
+    delete[] pjSampleRows;
   }
   catch (jpeg_error_mgr* pJerr) 
   {
@@ -384,6 +390,11 @@ bool my_jpeg_compress(BYTE** ptpCompressedBitmap, BYTE *pFullBitmap, int width, 
     }
     return false;
   } 
+  catch (std::bad_alloc &e) 
+  {
+    std::cerr << "Fatal Error: Not enough memory to compress bitmap to jpeg image!" << std::endl;
+    exit(1);
+  }
   return true;
 }
 
