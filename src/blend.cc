@@ -190,6 +190,29 @@ void blendLevelsScan(BlendBkgdArgs* args)
 }
 
 
+void blendLevelsFree(BlendSection** xFreeMap, BlendSection** yFreeMap)
+{
+  // free all the y and x pointers
+  BlendSection *tail = xFreeMap[0];
+  BlendSection *tailOld = NULL;
+  while (tail != NULL)
+  {
+    tailOld = tail;
+    tail = tail->getPrevious();
+    delete tailOld;
+    xFreeMap[0]=tail;
+  }
+  tail = yFreeMap[0];
+  while (tail != NULL)
+  {
+    tailOld = tail;
+    tail = tail->getPrevious();
+    delete tailOld;
+    yFreeMap[0] = tail;
+  }
+}
+
+
 void blendLevelsByBkgd(BlendBkgdArgs *args)
 {
   int64_t tileWidth = args->pSafeSrc->width;

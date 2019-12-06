@@ -411,6 +411,7 @@ void SlideConvertor::tileCleanup(SlideLevel &l)
   safeBmpFree(&l.sizedBitmap);
   safeBmpFree(&l.sizedBitmap2);
   safeBmpFree(&l.safeImgScaled);
+  safeBmpFree(&l.safeScaledL2Mini);
   safeBmpFree(&l.safeScaledL2Mini2);
 }
 
@@ -984,6 +985,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         
         safeBmpClear(&l.bitmap1);
         safeBmpClear(&l.safeImgScaled);
+        safeBmpClear(&l.safeScaledL2Mini);
         safeBmpClear(&l.safeScaledL2Mini2);
         bool allocSuccess = slide->allocate(&l.bitmap1, l.olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
         assert(allocSuccess);
@@ -1469,6 +1471,10 @@ void SlideConvertor::closeRelated()
     slide->close();
     delete slide;
     slide = NULL;
+  }
+  if (mxSubSections && mySubSections)
+  {
+    blendLevelsFree(mxSubSections, mySubSections);
   }
   if (mxSubSections)
   {

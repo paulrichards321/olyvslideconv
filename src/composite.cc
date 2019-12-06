@@ -40,7 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "jpgcachesupport.h"
 #include "composite.h"
 
-JpgCache jpgCache(1000);
+JpgCache jpgCache(750);
 
 const char* CompositeSlide::miniNames[] = 
 { 

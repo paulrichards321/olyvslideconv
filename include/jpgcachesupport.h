@@ -9,7 +9,7 @@ class JpgCache
 {
 public:
   JpgCache(int maxOpen) { mMaxOpen = maxOpen; }
-  JpgCache() { mMaxOpen=12; }
+  JpgCache() { mMaxOpen=100; }
   ~JpgCache() { releaseAll(); }
   void releaseAll();
   void release(Jpg *pjpg);
