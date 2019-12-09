@@ -12,7 +12,7 @@ int ZipFile::openArchive(std::string filename, int64_t maxBytes, int append)
   mOutputFile = filename;
   mMaxBytes = maxBytes;
   mDirNames.clear();
-  mZipArchive = zipOpen(mOutputFile.c_str(), append);
+  mZipArchive = zipOpen64(mOutputFile.c_str(), append);
   if (mZipArchive == NULL)
   {
     mErrMsg = strerror(errno); 
@@ -32,10 +32,10 @@ void ZipFile::setCompression(int method, int flags)
 int ZipFile::flushArchive()
 {
   if (mZipArchive == NULL) return 0;
-  int status = zipClose(mZipArchive, NULL);
+  int status = zipClose_64(mZipArchive, NULL);
   if (status==ZIP_OK)
   {
-    mZipArchive = zipOpen(mOutputFile.c_str(), APPEND_STATUS_ADDINZIP);
+    mZipArchive = zipOpen64(mOutputFile.c_str(), APPEND_STATUS_ADDINZIP);
     if (mZipArchive == NULL)
     {
       mErrMsg = strerror(errno); 
@@ -55,7 +55,7 @@ int ZipFile::flushArchive()
 int ZipFile::closeArchive()
 {
   if (mZipArchive == NULL) return 0;
-  int status = zipClose(mZipArchive, NULL);
+  int status = zipClose_64(mZipArchive, NULL);
   if (status != ZIP_OK)
   {
     mErrMsg = strerror(errno); 
@@ -79,14 +79,14 @@ int ZipFile::addFile(std::string filename, BYTE* buff, int64_t size)
   zinfo.internal_fa = 0644;
   zinfo.external_fa = 0644 << 16L;
 
-  int status = zipOpenNewFileInZip(mZipArchive, filename.c_str(), &zinfo, 
-    NULL, 0, NULL, 0, NULL, mCompressMethod, mCompressFlags); 
+  int status = zipOpenNewFileInZip_64(mZipArchive, filename.c_str(), &zinfo, 
+    NULL, 0, NULL, 0, NULL, mCompressMethod, mCompressFlags, (size > 0xFFFFFFFFLL) ? 1 : 0); 
   if (status == ZIP_OK)
   {
     status = zipWriteInFileInZip(mZipArchive, buff, size);
     if (status == ZIP_OK)
     {
-      status = zipCloseFileInZip(mZipArchive);
+      status = zipCloseFileInZip64(mZipArchive);
       if (status != ZIP_OK)
       {
         mErrMsg = strerror(errno);
@@ -95,7 +95,7 @@ int ZipFile::addFile(std::string filename, BYTE* buff, int64_t size)
     else
     {
       mErrMsg = strerror(errno);
-      zipCloseFileInZip(mZipArchive);
+      zipCloseFileInZip64(mZipArchive);
     }
   }
   else
@@ -130,12 +130,12 @@ int ZipFile::addDir(std::string name)
   {
     return ZIP_OK;
   }
-  status = zipOpenNewFileInZip(mZipArchive, nameWithSlash.c_str(), 
-    &zinfo, NULL, 0, NULL, 0, NULL, MZ_COMPRESS_METHOD_STORE, 0); 
+  status = zipOpenNewFileInZip_64(mZipArchive, nameWithSlash.c_str(), 
+    &zinfo, NULL, 0, NULL, 0, NULL, MZ_COMPRESS_METHOD_STORE, 0, 0); 
   if (status == ZIP_OK)
   {
     mDirNames.push_back(nameWithSlash);
-    status = zipCloseFileInZip(mZipArchive);
+    status = zipCloseFileInZip64(mZipArchive);
   }
   if (status != ZIP_OK)
   {
