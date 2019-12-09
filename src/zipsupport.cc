@@ -1,20 +1,22 @@
 #include "zipsupport.h"
+#include <iostream>
+#include <algorithm>
+#include <cerrno>
 #include <cstring>
 
-int ZipFile::openArchive(std::string filename, int64_t maxBytes, int flags)
+static uint32_t unix2dostime(time_t *time);
+
+int ZipFile::openArchive(std::string filename, int64_t maxBytes, int append)
 {
   int status = 0;
   mOutputFile = filename;
   mMaxBytes = maxBytes;
-  int zipErrorNumeric = 0;
-  mZipArchive = zip_open(mOutputFile.c_str(), flags, &zipErrorNumeric);
+  mDirNames.clear();
+  mZipArchive = zipOpen(mOutputFile.c_str(), append);
   if (mZipArchive == NULL)
   {
-    zip_error_t zipError;
-    memset(&zipError, 0, sizeof(zipError));
-    zip_error_init_with_code(&zipError, zipErrorNumeric);
-    mErrMsg = zip_error_strerror(&zipError); 
-    status = 1;
+    mErrMsg = strerror(errno); 
+    status = -1;
   }
   return status;
 }
@@ -30,79 +32,75 @@ void ZipFile::setCompression(int method, int flags)
 int ZipFile::flushArchive()
 {
   if (mZipArchive == NULL) return 0;
-  int status = zip_close(mZipArchive);
-  if (status == 0)
+  int status = zipClose(mZipArchive, NULL);
+  if (status==ZIP_OK)
   {
-    int zipErrorNumeric = 0;
-    mZipArchive = zip_open(mOutputFile.c_str(), 0, &zipErrorNumeric);
+    mZipArchive = zipOpen(mOutputFile.c_str(), APPEND_STATUS_ADDINZIP);
     if (mZipArchive == NULL)
     {
-      zip_error_t zipError;
-      memset(&zipError, 0, sizeof(zipError));
-      zip_error_init_with_code(&zipError, zipErrorNumeric);
-      mErrMsg = zip_error_strerror(&zipError); 
-      status = 1;
+      mErrMsg = strerror(errno); 
+      mDirNames.clear();
+      status = -1;
     }
   }
   else
   {
-    zip_error_t* pZipError = zip_get_error(mZipArchive);
-    mErrMsg = zip_error_strerror(pZipError); 
-    mZipArchive = NULL;
+    mErrMsg = strerror(errno); 
+    mDirNames.clear();
   }
   return status;
 }
 
+
 int ZipFile::closeArchive()
 {
   if (mZipArchive == NULL) return 0;
-  int status = zip_close(mZipArchive);
-  if (status != 0)
+  int status = zipClose(mZipArchive, NULL);
+  if (status != ZIP_OK)
   {
-    zip_error_t* pZipError = zip_get_error(mZipArchive);
-    mErrMsg = zip_error_strerror(pZipError); 
+    mErrMsg = strerror(errno); 
   }    
   mZipArchive = NULL;
+  mDirNames.clear();
   return status;
 }
 
 
 int ZipFile::addFile(std::string filename, BYTE* buff, int64_t size)
 {
-  int zipIndex = -1;
-  zip_source_t* zipSrc = NULL;
-  int status = 1;
+  zip_fileinfo zinfo;
+  time_t currentTime;
+
   if (mZipArchive == NULL || buff == NULL) return 0;
-  zipSrc = zip_source_buffer(mZipArchive, buff, 0, 0);
-  if (zipSrc)
+
+  memset(&zinfo, 0, sizeof(zinfo));
+  time(&currentTime);
+  zinfo.mz_dos_date = unix2dostime(&currentTime);
+  zinfo.internal_fa = 0644;
+  zinfo.external_fa = 0644 << 16L;
+
+  int status = zipOpenNewFileInZip(mZipArchive, filename.c_str(), &zinfo, 
+    NULL, 0, NULL, 0, NULL, mCompressMethod, mCompressFlags); 
+  if (status == ZIP_OK)
   {
-    zipIndex=zip_file_add(mZipArchive, filename.c_str(), zipSrc, ZIP_FL_OVERWRITE);
-  }
-  if (zipIndex >= 0 &&
-      zip_set_file_compression(mZipArchive, zipIndex, mCompressMethod, mCompressFlags) == 0 &&
-      zip_source_begin_write(zipSrc) == 0 &&
-      zip_source_write(zipSrc, buff, size) == size &&
-      zip_source_commit_write(zipSrc) == 0)
-  {
-    status = 0;
-    mBytesProcessed += size;
-    if (mBytesProcessed >= mMaxBytes)
+    status = zipWriteInFileInZip(mZipArchive, buff, size);
+    if (status == ZIP_OK)
     {
-      status = flushArchive();
-      mBytesProcessed = 0;
+      status = zipCloseFileInZip(mZipArchive);
+      if (status != ZIP_OK)
+      {
+        mErrMsg = strerror(errno);
+      }
+    }
+    else
+    {
+      mErrMsg = strerror(errno);
+      zipCloseFileInZip(mZipArchive);
     }
   }
   else
   {
-    if (mZipArchive)
-    {
-      zip_error_t* pZipError = zip_get_error(mZipArchive);
-      mErrMsg = zip_error_strerror(pZipError); 
-    }
-    if (zipSrc)
-    {
-      zip_source_free(zipSrc);
-    }
+    mErrMsg = strerror(errno);
   }
   return status;
 }
@@ -110,24 +108,57 @@ int ZipFile::addFile(std::string filename, BYTE* buff, int64_t size)
 
 int ZipFile::addDir(std::string name)
 {
+  zip_fileinfo zinfo;
+  time_t currentTime;
+  
+  if (mZipArchive == NULL) return 0;
+  
+  memset(&zinfo, 0, sizeof(zinfo));
+  time(&currentTime);
+  zinfo.mz_dos_date = unix2dostime(&currentTime);
+  zinfo.internal_fa = 0755;
+  zinfo.external_fa = 040755 << 16L;
+
   std::string nameWithSlash=name;
   std::size_t lastSlashIndex = name.find_last_of(mZipPathSeparator);
   int status = 0;
-  if (mZipArchive == NULL) return 0;
   if (lastSlashIndex == std::string::npos || lastSlashIndex < name.length())
   {
     nameWithSlash.append(1, mZipPathSeparator);
   }
-  if (zip_name_locate(mZipArchive, nameWithSlash.c_str(), ZIP_FL_ENC_GUESS) < 0)
+  if (std::find(mDirNames.begin(), mDirNames.end(), nameWithSlash) != mDirNames.end())
   {
-    status = zip_dir_add(mZipArchive, name.c_str(), ZIP_FL_ENC_GUESS);
-    if (status==-1)
-    {
-      zip_error_t * zipError = zip_get_error(mZipArchive);
-      mErrMsg = zip_error_strerror(zipError);
-    }
+    return ZIP_OK;
+  }
+  status = zipOpenNewFileInZip(mZipArchive, nameWithSlash.c_str(), 
+    &zinfo, NULL, 0, NULL, 0, NULL, MZ_COMPRESS_METHOD_STORE, 0); 
+  if (status == ZIP_OK)
+  {
+    mDirNames.push_back(nameWithSlash);
+    status = zipCloseFileInZip(mZipArchive);
+  }
+  if (status != ZIP_OK)
+  {
+    mErrMsg = strerror(errno);
   }
   return status;
+}
+
+
+uint32_t unix2dostime(time_t *time)
+{
+  if (time==NULL) return 0;
+  struct tm *ltime = localtime (time);
+  int year = ltime->tm_year - 80;
+  if (year < 0)
+    year = 0;
+
+  return (year << 25
+	  | (ltime->tm_mon + 1) << 21
+	  | ltime->tm_mday << 16
+	  | ltime->tm_hour << 11
+	  | ltime->tm_min << 5
+	  | ltime->tm_sec >> 1);
 }
 
 

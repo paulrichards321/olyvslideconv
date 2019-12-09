@@ -302,7 +302,7 @@ public:
   #else
   static const char mPathSeparator='/';
   #endif
-  static const int64_t mMaxZipBufferBytes=2048000000;
+  static const int64_t mMaxZipBufferBytes=1024000000LL;
 public:
   SlideConvertor();
   ~SlideConvertor() { closeRelated(); }
@@ -1388,12 +1388,12 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
   else if (mOutputType == OLYVSLIDE_GOOGLE)
   {
     mZip = new ZipFile();
-    if (mZip->openArchive(outputFile.c_str(), mMaxZipBufferBytes, ZIP_CREATE | ZIP_TRUNCATE) != 0)
+    if (mZip->openArchive(outputFile.c_str(), mMaxZipBufferBytes, APPEND_STATUS_CREATE) != 0)
     {
       std::cerr << "Failed to create zip file '" << outputFile << "'. Reason: " << mZip->getErrorMsg() << std::endl;
       return 2;
     }
-    mZip->setCompression(ZIP_CM_STORE, 0);
+    mZip->setCompression(MZ_COMPRESS_METHOD_STORE, MZ_COMPRESS_LEVEL_DEFAULT);
     mCenter = true;
   }
   else
@@ -1474,7 +1474,7 @@ void SlideConvertor::closeRelated()
   }
   if (mxSubSections && mySubSections)
   {
-    blendLevelsFree(mxSubSections, mySubSections);
+    blendLevelsFree(mxSubSections, mTotalXSections, mySubSections, mTotalYSections);
   }
   if (mxSubSections)
   {

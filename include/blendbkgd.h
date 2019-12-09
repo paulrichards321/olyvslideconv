@@ -43,7 +43,7 @@ typedef struct
 
 void blendLevelsScan(BlendBkgdArgs* args);
 void blendLevelsByBkgd(BlendBkgdArgs *args);
-void blendLevelsFree(BlendSection** xFreeMap, BlendSection** yFreeMap);
+void blendLevelsFree(BlendSection** xFreeMap, int64_t xSize, BlendSection** yFreeMap, int64_t ySize);
 
 #endif
 

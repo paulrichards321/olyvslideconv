@@ -1,7 +1,8 @@
 #ifndef __ZIP_SUPPORT_H
 #define __ZIP_SUPPORT_H
-#include <zip.h>
 #include <cstdint>
+#include <minizip/zip.h>
+#include <vector>
 #include <string>
 
 #ifndef BYTE
@@ -12,12 +13,14 @@ class ZipFile
 {
 protected:
   std::string mOutputFile;
-  zip_t *mZipArchive;
+  void *mZipArchive;
   std::string mErrMsg;
   int mCompressMethod;
   int mCompressFlags;
-  int64_t mBytesProcessed;
+  int64_t mCheckProcessed;
+  int64_t mTotalProcessed;
   int64_t mMaxBytes;
+  std::vector<std::string> mDirNames;
 public:
   ~ZipFile() { closeArchive(); }
   static const char mZipPathSeparator = '/';

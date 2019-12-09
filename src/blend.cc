@@ -190,25 +190,30 @@ void blendLevelsScan(BlendBkgdArgs* args)
 }
 
 
-void blendLevelsFree(BlendSection** xFreeMap, BlendSection** yFreeMap)
+void blendLevelsFree(BlendSection** xFreeMap, int64_t xSize, BlendSection** yFreeMap, int64_t ySize)
 {
+  BlendSection *tail=NULL;
+  BlendSection *tailOld=NULL;
   // free all the y and x pointers
-  BlendSection *tail = xFreeMap[0];
-  BlendSection *tailOld = NULL;
-  while (tail != NULL)
+  for (int i=0; i < xSize; i++)
   {
-    tailOld = tail;
-    tail = tail->getPrevious();
-    delete tailOld;
-    xFreeMap[0]=tail;
+    tail = xFreeMap[i];
+    while (tail != NULL)
+    {
+      tailOld = tail;
+      tail = tail->getPrevious();
+      delete tailOld;
+    }
   }
-  tail = yFreeMap[0];
-  while (tail != NULL)
+  for (int i=0; i < ySize; i++)
   {
-    tailOld = tail;
-    tail = tail->getPrevious();
-    delete tailOld;
-    yFreeMap[0] = tail;
+    tail = yFreeMap[i];
+    while (tail != NULL)
+    {
+      tailOld = tail;
+      tail = tail->getPrevious();
+      delete tailOld;
+    }
   }
 }
 
