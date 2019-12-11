@@ -194,14 +194,14 @@ public:
   bool isValidObject() { return mValidObject; }
   void initialize();
   void close();
-  bool open(const std::string& inputDir, bool useOpenCV = false, bool doBorderHighlight = false, bool createLog = false, int64_t bestXOffset = -1, int64_t bestYOffset = -1, safeBmp **pImageL2 = NULL); 
+  bool open(const std::string& inputDir, bool useOpenCV = false, bool doBorderHighlight = false, int debugLevel = 0, int64_t bestXOffset = -1, int64_t bestYOffset = -1, safeBmp **pImageL2 = NULL); 
   bool read(int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
   bool read(BYTE *pBmp, int level, int direction, int zLevel, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale, int64_t *readWidth, int64_t *readHeight);
   bool allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
   #ifndef USE_MAGICK
-  bool findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **pImageL2, bool createLog, std::fstream& logFile);
+  bool findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **pImageL2, int debugLevel, std::fstream& logFile);
   #endif
-  bool loadL2Image(int lowerLevel, int higherLevel, safeBmp **pImageL2, bool createLog, std::fstream& logFile);
+  bool loadL2Image(int lowerLevel, int higherLevel, safeBmp **pImageL2, int debugLevel, std::fstream& logFile);
   bool checkLevel(int level);
   bool checkZLevel(int level, int direction, int zLevel); 
   int getTotalZLevels() { return mValidObject == true ? mTotalZLevels : 0; }

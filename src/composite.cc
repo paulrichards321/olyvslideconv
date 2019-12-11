@@ -40,8 +40,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "jpgcachesupport.h"
 #include "composite.h"
 
-JpgCache jpgCache(1000);
-
 const char* CompositeSlide::miniNames[] = 
 { 
   "FinalScan.ini", "FinalCond.ini", 
@@ -168,7 +166,7 @@ bool CompositeSlide::checkLevel(int level)
 }
 
 
-bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool doBorderHighlight, bool createLog, int64_t bestXOffset, int64_t bestYOffset, safeBmp **ptpImageL2)
+bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool doBorderHighlight, int debugLevel, int64_t bestXOffset, int64_t bestYOffset, safeBmp **ptpImageL2)
 {
   JpgFileXY jpgxy;
   JpgFileXY jpgxyzstack;                  
@@ -214,7 +212,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   }
   
   std::fstream logFile;
-  if (createLog)
+  if (debugLevel > 1)
   {
     logFile.open("SlideScan.openimage.log", std::ios::out);
   }
@@ -229,15 +227,14 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
     yFound = false;
     nameFound = false;
     header = false;
-    std::cout << "Trying to open " << inputName << "... ";
     std::ifstream iniFile(inputName.c_str());
     if (iniFile.good())
     {
-      std::cout << "Success!" << std::endl;
+      std::cout << "Found: '" << inputName << "'." << std::endl;
     }
     else
     {
-      std::cout << "failed to open file. " << std::endl;
+      std::cout << "Warning: Failed to open: '" << inputName << "'!" << std::endl;
     }
 
     int c = 0;
@@ -331,14 +328,20 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
           {
             std::string yStepSubStr = line.substr(yStepPos+lYStepSize.length()+1);
             pConf->myStepSize = atoi(yStepSubStr.c_str());
-            std::cout << "Exact y step measurements found for level " << fileNum << std::endl;
+            if (debugLevel > 0)
+            {
+              std::cout << "Exact y step measurements found for level " << fileNum << std::endl;
+            }
           }
           size_t xStepPos = line.find(lXStepSize);
           if (xStepPos != std::string::npos && xStepPos+lXStepSize.length()+1<line.length())
           {
             std::string xStepSubStr = line.substr(xStepPos+lXStepSize.length()+1);
             pConf->mxStepSize = atoi(xStepSubStr.c_str());
-            std::cout << "Exact x step measurements found for level " << fileNum << std::endl;
+            if (debugLevel > 0)
+            {
+              std::cout << "Exact x step measurements found for level " << fileNum << std::endl;
+            }
           }
           size_t xOffsetPos = line.find(lXOffset);
           if (xOffsetPos != std::string::npos && xOffsetPos+lXOffset.length()+1<line.length())
@@ -363,8 +366,14 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
           {
             std::string qualitySubStr = line.substr(qualityPos+ImageQuality.length()+1);
             pConf->mquality = atoi(qualitySubStr.c_str());
-            std::cout << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
-            if (createLog) logFile << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
+            if (debugLevel > 0)
+            {
+              std::cout << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
+            }
+            if (debugLevel > 1)
+            {
+              logFile << "Jpeg quality read from ini file: " << pConf->mquality << std::endl;
+            }
           }
         }
         std::string line2=line.substr(0, 2);
@@ -430,7 +439,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
         jpg.getErrMsg(errMsg);
         std::cerr << "Error: failed to open " << pConf->mxyArr[0].mBaseFileName << " do not have pixel width and height for source jpgs." << std::endl;
         std::cerr << "Returned error: " << errMsg << std::endl;
-        if (createLog) 
+        if (debugLevel > 1) 
         {
           logFile << "Error: failed to open " << pConf->mxyArr[0].mBaseFileName << " do not have pixel width and height for source jpgs." << std::endl;
           logFile << "Returned error: " << errMsg << std::endl;
@@ -439,7 +448,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
         return false;
       }
     }
-    if (createLog) logFile << "fileName=" << pConf->mname << " jpgWidth=" << pConf->mpixelWidth << " jpgHeight=" << pConf->mpixelHeight << std::endl;
+    if (debugLevel > 1) logFile << "fileName=" << pConf->mname << " jpgWidth=" << pConf->mpixelWidth << " jpgHeight=" << pConf->mpixelHeight << std::endl;
     pConf->mfound = true;
     
     //************************************************************************
@@ -480,7 +489,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
     }
     if (pConf->mxStepSize>0)
     {
-      if (createLog) logFile << "fileName=" << pConf->mname << " xAdj calculation exact=";
+      if (debugLevel > 1) logFile << "fileName=" << pConf->mname << " xAdj calculation exact=";
     }
     else
     {
@@ -492,18 +501,18 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       {
         pConf->mxStepSize = pConf->mxDiffMin;
       }
-      if (createLog) logFile << "fileName=" << pConf->mname << " Guessing xAdj=";
+      if (debugLevel > 1) logFile << "fileName=" << pConf->mname << " Guessing xAdj=";
     }
    	//pConf->mxMin -= pConf->mxStepSize;
     if (pConf->mpixelWidth>0 && pConf->mxStepSize>0)
     {
       pConf->mxAdj = (double) pConf->mxStepSize / (double) pConf->mpixelWidth;
-      if (createLog) logFile << pConf->mxAdj << std::endl;
+      if (debugLevel > 1) logFile << pConf->mxAdj << std::endl;
     }
    
     if (pConf->myStepSize>0)
     {
-      if (createLog) logFile << "fileName=" << pConf->mname << " yAdj calculation exact=";
+      if (debugLevel > 1) logFile << "fileName=" << pConf->mname << " yAdj calculation exact=";
     }
     else
     {
@@ -515,16 +524,16 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       {
         pConf->myStepSize = pConf->myDiffMin;
       }
-      if (createLog) logFile << "fileName=" << pConf->mname << " Guessing yAdj=";
+      if (debugLevel > 1) logFile << "fileName=" << pConf->mname << " Guessing yAdj=";
     }
     //pConf->myMin -= pConf->myStepSize;
     if (pConf->mpixelHeight>0 && pConf->myStepSize>0)
     {
       pConf->myAdj = (double) pConf->myStepSize / (double) pConf->mpixelHeight;
-      if (createLog) logFile << pConf->myAdj << std::endl;
+      if (debugLevel > 1) logFile << pConf->myAdj << std::endl;
     }
   
-    if (createLog) 
+    if (debugLevel > 1) 
     {
       logFile << "fileName=" << pConf->mname << " xDiffMin=" << pConf->mxDiffMin << " xStepSize=" << pConf->mxStepSize << " xMin=" << pConf->mxMin << " xMax=" << pConf->mxMax << " xAxis=" << pConf->mxAxis << std::endl;
       logFile << "fileName=" << pConf->mname << " yDiffMin=" << pConf->myDiffMin << " yStepSize=" << pConf->myStepSize << " yMin=" << pConf->myMin << " yMax=" << pConf->myMax << " yAxis=" << pConf->myAxis << std::endl;
@@ -655,9 +664,9 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   }
   if (level==-1)
   {
-    if (createLog) logFile << "File has no readable levels." << std::endl;
+    if (debugLevel > 1) logFile << "File has no readable levels." << std::endl;
     mValidObject = false;
-    if (createLog) logFile.close();
+    if (debugLevel > 1) logFile.close();
     return false;
   }
   
@@ -746,7 +755,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   // log file width and height
   for (int fileNum=0; fileNum < 4; fileNum++)
   {
-    if (createLog) logFile << "fileName=" << mConf[fileNum]->mname << " totalWidth in pixels=" << mConf[fileNum]->mtotalWidth << " totalHeight in pixels=" << mConf[fileNum]->mtotalHeight << std::endl;
+    if (debugLevel > 1) logFile << "fileName=" << mConf[fileNum]->mname << " totalWidth in pixels=" << mConf[fileNum]->mtotalWidth << " totalHeight in pixels=" << mConf[fileNum]->mtotalHeight << std::endl;
   }
 
   IniConf* pHigherConf = NULL;
@@ -801,13 +810,13 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       //if (yPixelInt>0) yPixelInt--;
       pConf->mxyArr[i].myPixel=yPixelInt; // previous use lround here
       
-      if (createLog) logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixelInt << " y=" << yPixelInt << std::endl;
+      if (debugLevel > 1) logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixelInt << " y=" << yPixelInt << std::endl;
 
       for (int zSplit=0; zSplit < 2; zSplit++)
       {
         for (int zLevel=0; zLevel<4; zLevel++)
         {
-          if (pConf->mxyArr[i].mzStack[zSplit][zLevel] && createLog)
+          if (pConf->mxyArr[i].mzStack[zSplit][zLevel] && debugLevel > 1)
           {
             logFile << "filename=" << pConf->mxyArr[i].mFileName[zSplit][zLevel] << " x=" << xPixelInt << " y=" << yPixelInt << std::endl;
           }
@@ -823,12 +832,12 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   #ifndef USE_MAGICK
   if (lowerLevelFound && higherLevelFound && useOpenCV)
   {
-    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, ptpImageL2, createLog, logFile);
+    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, ptpImageL2, debugLevel, logFile);
   }
   #endif
   if (lowerLevelFound && higherLevelFound && useOpenCV==false)
   {
-    loadL2Image(lowerLevel, higherLevel, ptpImageL2, createLog, logFile);
+    loadL2Image(lowerLevel, higherLevel, ptpImageL2, debugLevel, logFile);
 
     double higherRatioX = (double) pHigherConf->mpixelWidth / (double) pHigherConf->mxStepSize; 
     double higherRatioY = (double) pHigherConf->mpixelHeight / (double) pHigherConf->myStepSize;
@@ -881,10 +890,13 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       bestYOffsetL1 = (int64_t) floor(lowerMinBaseL1Y * ratioAL1Y - minusL1Y);
     }
   }
-  std::cout << "Best X Offset Level0=" << bestXOffsetL0 << std::endl;
-  std::cout << "Best Y Offset Level0=" << bestYOffsetL0 << std::endl;
-  std::cout << "Best X Offset Level1=" << bestXOffsetL1 << std::endl;
-  std::cout << "Best Y Offset Level1=" << bestYOffsetL1 << std::endl;
+  if (debugLevel > 0)
+  {
+    std::cout << "Best X Offset Level0=" << bestXOffsetL0 << std::endl;
+    std::cout << "Best Y Offset Level0=" << bestYOffsetL0 << std::endl;
+    std::cout << "Best X Offset Level1=" << bestXOffsetL1 << std::endl;
+    std::cout << "Best Y Offset Level1=" << bestYOffsetL1 << std::endl;
+  }
   //*****************************************************************
   // Calculate the x and y coordinate of each file starting pixels
   //*****************************************************************
@@ -915,7 +927,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
       pConf->mxSortedArr[i].mxPixel=(int64_t)round(xPixel);
       pConf->mxSortedArr[i].myPixel=(int64_t)round(yPixel);
       
-      if (createLog) logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixel << " y=" << yPixel << std::endl;
+      if (debugLevel > 1) logFile << "filename=" << pConf->mxyArr[i].mBaseFileName << " x=" << xPixel << " y=" << yPixel << std::endl;
     }
     std::sort(pConf->mxyArr.begin(), pConf->mxyArr.end());
     std::sort(pConf->mxSortedArr.begin(), pConf->mxSortedArr.end(), JpgXYSortForX());
@@ -944,7 +956,7 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
     previewConf->mpixelWidth = previewConf->mtotalWidth = previewJpg.getActualWidth();
     previewConf->mpixelHeight = previewConf->mtotalHeight = previewJpg.getActualHeight();
     previewConf->mtotalTiles = 1;
-    if (createLog) logFile << " PreviewSlide.jpg found. Width=" << previewConf->mpixelWidth << " Height=" << previewConf->mpixelHeight << std::endl;
+    if (debugLevel > 1) logFile << " PreviewSlide.jpg found. Width=" << previewConf->mpixelWidth << " Height=" << previewConf->mpixelHeight << std::endl;
     jpgxy.mBaseFileName = previewFileName;
     jpgxy.mxPixel=0;
     jpgxy.myPixel=0;
@@ -960,12 +972,12 @@ bool CompositeSlide::open(const std::string& srcFileName, bool useOpenCV, bool d
   {
     std::cerr << "Warning: PreviewSlide.jpg not found." << std::endl;
   }
-  if (createLog) logFile.close();
+  if (debugLevel > 1) logFile.close();
   return true;
 }
 
 #ifndef USE_MAGICK
-bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **ptpImageL2, bool createLog, std::fstream& logFile)
+bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **ptpImageL2, int debugLevel, std::fstream& logFile)
 {
   if (ptpImageL2 == NULL) return false;
   *ptpImageL2 = NULL;
@@ -980,10 +992,10 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   double yZoomOut = pHigherConf->myAdj / pLowerConf->myAdj;
   int64_t simulatedWidth = (int64_t) lround((double)pLowerConf->mdetailedWidth / xZoomOut);
   int64_t simulatedHeight = (int64_t) lround((double)pLowerConf->mdetailedHeight / yZoomOut);
-  if (createLog) logFile << "simulatedWidth=" << simulatedWidth << " simulatedHeight=" << simulatedHeight << std::endl;
+  if (debugLevel > 1) logFile << "simulatedWidth=" << simulatedWidth << " simulatedHeight=" << simulatedHeight << std::endl;
   
   cv::Mat* pImgComplete1 = new cv::Mat(simulatedHeight, simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  if (createLog) logFile << "Reading level " << lowerLevel << " and scaling..." << std::endl;
+  if (debugLevel > 1) logFile << "Reading level " << lowerLevel << " and scaling..." << std::endl;
   std::cout << "Reading level " << lowerLevel << " and scaling..." << std::endl;
   for (int64_t i=0; i<pLowerConf->mtotalTiles; i++)
   {
@@ -1033,7 +1045,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   }
 
   cv::Mat *pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  if (createLog) logFile << "Reading level " << higherLevel << " and scaling." << std::endl;
+  if (debugLevel > 1) logFile << "Reading level " << higherLevel << " and scaling." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
     cv::Mat imgPart = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
@@ -1092,7 +1104,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   //std::vector< cv::KeyPoint > matched1, matched2;
   
   //double nn_match_ratio = 0.8;
-  if (createLog)
+  if (debugLevel > 1)
   {
     if (pImgComplete1 && pImgComplete1->data)
       cv::imwrite("imgComplete1.jpg", *pImgComplete1);
@@ -1146,7 +1158,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     bestXOffset = 0;
     bestYOffset = 0;
   }
-  if (createLog)
+  if (debugLevel > 1)
   {
     logFile << "Diff X Vector Size: " << diffXs.size() << std::endl;
     logFile << "Best (First in sorted arrays) X, Y alignment: " << bestXOffset << " " << bestYOffset << std::endl;
@@ -1168,7 +1180,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
 #endif
 
 #ifndef USE_MAGICK
-bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, bool createLog, std::fstream& logFile)
+bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, int debugLevel, std::fstream& logFile)
 {
   IniConf *pHigherConf = mConf[higherLevel];
   
@@ -1177,7 +1189,7 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
 
   cv::Mat *pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mdetailedHeight, (int64_t)pHigherConf->mdetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
 
-  if (createLog) logFile << "Reading level " << higherLevel << "." << std::endl;
+  if (debugLevel > 1) logFile << "Reading level " << higherLevel << "." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
     cv::Mat imgPart = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
@@ -1216,7 +1228,7 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
   }
   if (pImgComplete2 && pImgComplete2->data)
   {
-    if (createLog) cv::imwrite("imgComplete2.jpg", *pImgComplete2);
+    if (debugLevel > 1) cv::imwrite("imgComplete2.jpg", *pImgComplete2);
     safeBmp *pImageL2  = safeBmpAlloc(pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight);
     *ptpImageL2 = pImageL2;
     safeBmp safeImgComplete2Ref;
@@ -1235,7 +1247,7 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
 
 #else
 
-bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, bool createLog, std::fstream& logFile)
+bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, int debugLevel, std::fstream& logFile)
 {
   IniConf *pHigherConf = mConf[higherLevel];
   
@@ -1251,7 +1263,7 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
   Magick::MagickNewImage(magickWand, pHigherConf->mdetailedWidth, pHigherConf->mdetailedHeight, pixelWand);
   Magick::MagickWand *magickWand2 = Magick::NewMagickWand(); 
 
-  if (createLog) logFile << "Reading level " << higherLevel << "." << std::endl;
+  if (debugLevel > 1) logFile << "Reading level " << higherLevel << "." << std::endl;
   for (int64_t i=0; i<pHigherConf->mtotalTiles; i++)
   {
     Magick::MagickSetImageType(magickWand2, Magick::TrueColorType);
@@ -1271,7 +1283,7 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
     Magick::ClearMagickWand(magickWand2);
   }
   if (magickWand2) Magick::DestroyMagickWand(magickWand2);
-  if (createLog) 
+  if (debugLevel > 1) 
   {
     Magick::Image* pImgComplete2 = Magick::GetImageFromMagickWand(magickWand);
     magickWand2 = Magick::NewMagickWandFromImage(pImgComplete2);

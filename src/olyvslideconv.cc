@@ -1,4 +1,4 @@
-/**************************************************************************
+/*************************************************************************
 Initial author: Paul F. Richards (paulrichards321@gmail.com) 2016-2017 
 https://github.com/paulrichards321/oly2gmap
 
@@ -34,6 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <unistd.h>
 #include <getopt.h>
 #endif
+#include "jpgcachesupport.h"
 #include "jpgsupport.h"
 #include "tiffsupport.h"
 #include "zipsupport.h"
@@ -41,9 +42,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "safebmp.h"
 #include "blendbkgd.h"
 
+#define MAX_RESIZE_MEMORY 512
+#define MAX_JPG_CACHE_MEMORY 256
+
 #define OLYVSLIDE_SCANONLY 3
 #define OLYVSLIDE_GOOGLE   2
 #define OLYVSLIDE_TIF      1
+
+extern JpgCache jpgCache;
 
 std::string bool2txt(bool cond)
 {
@@ -52,7 +58,7 @@ std::string bool2txt(bool cond)
   return result;
 }
 
-void quickEnv(const char* var, const char* value, int replace)
+void quickEnv(const char* var, const char* value, int debugLevel)
 {
   char full_char[512];
   std::string full=var;
@@ -61,7 +67,10 @@ void quickEnv(const char* var, const char* value, int replace)
   const char * full_const = full.c_str();
   full_char[0] = 0;
   strncpy(full_char, full_const, sizeof(full_char)-1);
-  std::cout << "ENV: " << full_char << std::endl;
+  if (debugLevel > 0)
+  {
+    std::cout << "ENV: " << full_char << std::endl;
+  }
   putenv(full_char);
 }
 
@@ -78,6 +87,7 @@ protected:
   bool center;
   bool tiled;
   bool scanBkgd;
+  int64_t maxMemory;
   int64_t srcTotalWidth;
   int64_t srcTotalHeight;
   int64_t srcTotalWidthL2;
@@ -90,6 +100,8 @@ protected:
   int inputTileWidth;
   int inputTileHeight;
   int quality;
+  int totalSubTiles;
+  int xSubTile, ySubTile;
   int64_t readWidthL2;
   int64_t readHeightL2;
   int64_t readWidth;
@@ -118,6 +130,8 @@ protected:
   bool readOkL2;
   int64_t inputTileWidthRead;
   int64_t inputTileHeightRead;
+  int64_t inputSubTileWidthRead;
+  int64_t inputSubTileHeightRead;
   int64_t xMargin;
   int64_t yMargin;
   #ifndef USE_MAGICK
@@ -136,6 +150,7 @@ protected:
   safeBmp* pBitmap4;
   safeBmp* pBitmapFinal;
   safeBmp bitmap1;
+  safeBmp subTileBitmap;
   safeBmp safeImgScaled;
   safeBmp sizedBitmap;
   safeBmp sizedBitmap2;
@@ -169,6 +184,8 @@ protected:
   std::string tileName;
   int writeOutputWidth;
   int writeOutputHeight;
+  int perc, percOld;
+  bool onePercHit;
 public:
   SlideLevel()
   {
@@ -291,6 +308,7 @@ protected:
   int mLastZLevel, mLastDirection;
   int mTopOutLevel;
   int64_t mMaxSide;
+  int mMaxMemory;
   int mDebugLevel;
   safeBmp *mpImageL2;
   int64_t mTotalXSections, mTotalYSections;
@@ -308,7 +326,7 @@ public:
   ~SlideConvertor() { closeRelated(); }
   void closeRelated();
   std::string getErrMsg() { return errMsg; }
-  int open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset = -1, int64_t bestYOffset = -1, int outputType = 0, int debugLevel = 0);
+  int open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset, int64_t bestYOffset, int maxMemory, int outputType, int debugLevel);
   bool my_mkdir(std::string name);
   void calcCenters(int outLevel, int64_t& xCenter, int64_t& yCenter);
   int convert();
@@ -320,6 +338,7 @@ public:
   void blendL2WithSrc(SlideLevel &l);
   void scanSrcTileBkgd(SlideLevel& l);
   void processSrcTile(SlideLevel& l);
+  void printPercDone(SlideLevel& l);
 };
 
 
@@ -391,7 +410,6 @@ void SlideConvertor::calcCenters(int outLevel, int64_t &xCenter, int64_t &yCente
 
 void SlideConvertor::tileCleanup(SlideLevel &l)
 {
-  safeBmpFree(&l.bitmap1);
   if (l.pImgScaled)
   {
     #ifndef USE_MAGICK
@@ -408,9 +426,8 @@ void SlideConvertor::tileCleanup(SlideLevel &l)
     #endif
     l.pImgScaledL2Mini = 0;
   }
-  safeBmpFree(&l.sizedBitmap);
+  safeBmpFree(&l.subTileBitmap);
   safeBmpFree(&l.sizedBitmap2);
-  safeBmpFree(&l.safeImgScaled);
   safeBmpFree(&l.safeScaledL2Mini);
   safeBmpFree(&l.safeScaledL2Mini2);
 }
@@ -423,6 +440,8 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
 {
   safeBmp bitmapL2Mini;
   BlendBkgdArgs blendArgs;
+
+  safeBmpClear(&bitmapL2Mini);
   int64_t xSrcStartL2=round(l.xSrc * l.xScaleL2);
   int64_t ySrcStartL2=round(l.ySrc * l.yScaleL2);
   int64_t xDestStartL2=0, yDestStartL2=0;
@@ -469,10 +488,8 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
     safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2);
     safeBmpByteSet(&l.safeScaledL2Mini2, l.bkgdColor);
     safeBmpCpy(&l.safeScaledL2Mini2, 0, 0, &l.safeScaledL2Mini, 0, 0, l.finalOutputWidth, l.finalOutputHeight);
-    safeBmpFree(&l.safeScaledL2Mini);
-    safeBmpInit(&l.safeScaledL2Mini, l.safeScaledL2Mini2.data, l.finalOutputWidth2, l.finalOutputHeight2);
   }
-  if (l.debugLevel > 0)
+  if (l.debugLevel > 1)
   {
     std::string errMsg;
     std::string l2TileName=l.tileName;
@@ -488,7 +505,7 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
     // slide->blendLevelsByRegion(l.safeScaledL2Mini.data, l.pBitmapSrc, round(l.xSrc), round(l.ySrc), round(l.grabWidthA), round(l.grabHeightA), l.inputTileWidth, l.inputTileHeight, l.xScaleReverse, l.yScaleReverse, l.olympusLevel); 
     slide->blendLevelsByRegion(&l.safeScaledL2Mini, l.pBitmapSrc, round(l.xSrc), round(l.ySrc), l.xScaleReverse, l.yScaleReverse, l.olympusLevel); 
     safeBmpInit(&l.bitmapBlended, l.safeScaledL2Mini.data, l.finalOutputWidth2, l.finalOutputHeight2);
-    l.pBitmapFinal=&l.bitmapBlended;
+    l.pBitmapFinal = &l.bitmapBlended;
   }
   else
   {
@@ -508,7 +525,6 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
     blendArgs.yLimit = l.yBkgdLimit;
     blendArgs.bkgdColor = l.bkgdColor;
     blendLevelsByBkgd(&blendArgs);
-    //blendLevelsByBkgd(l.pBitmap4, l.pBitmapSrc, &l.safeScaledL2Mini, round(l.xDest), round(l.yDest), l.totalXSections / 2, l.xBkgdLimit, l.yBkgdLimit, l.xSubSections, l.totalXSections, l.ySubSections, l.totalYSections, l.bkgdColor, l.tiled);
     l.pBitmapFinal = l.pBitmap4;
   }
   safeBmpFree(&bitmapL2Mini);
@@ -538,9 +554,6 @@ void SlideConvertor::scanSrcTileBkgd(SlideLevel& l)
 
 void SlideConvertor::processSrcTile(SlideLevel& l)
 {
-  l.pBitmapFinal = l.pBitmapSrc;
-  //l.writeOutputWidth = l.readWidth;
-  //l.writeOutputHeight = l.readHeight;
   // Check if read height and width returned from composite read
   // came back smaller than expected, resize the bitmap if so
   if (l.readWidth != l.grabWidthRead || l.readHeight != l.grabHeightRead)
@@ -559,15 +572,15 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
   // Check if the grabbed data needs to be scaled in or out
   // If we are at the very bottom of the image pyramid, this part will
   // be skipped because no scaling will be done
-  if (l.grabWidthRead!=l.inputTileWidthRead || l.grabHeightRead!=l.inputTileHeightRead)
+  if (l.grabWidthRead!=l.inputSubTileWidthRead || l.grabHeightRead!=l.inputSubTileHeightRead)
   {
     #ifndef USE_MAGICK
     l.pImgScaled = new cv::Mat;
     cv::Mat imgSrc(l.grabHeightRead, l.grabWidthRead, CV_8UC3, l.pBitmapSrc->data);
-    cv::Size scaledSize(l.inputTileWidthRead, l.inputTileHeightRead);
+    cv::Size scaledSize(l.inputSubTileWidthRead, l.inputSubTileHeightRead);
     cv::resize(imgSrc, *l.pImgScaled, scaledSize, l.xScaleReverse, l.yScaleReverse, l.scaleMethod);
     imgSrc.release();
-    safeBmpInit(&l.safeImgScaled, l.pImgScaled->data, l.inputTileWidthRead, l.inputTileHeightRead);  
+    safeBmpInit(&l.safeImgScaled, l.pImgScaled->data, l.inputSubTileWidthRead, l.inputSubTileHeightRead);
     #else
     Magick::MagickSetCompression(l.magickWand, Magick::NoCompression);
     Magick::MagickSetImageType(l.magickWand, Magick::TrueColorType);
@@ -576,9 +589,9 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     //Magick::MagickNewImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, l.pixelWand);
     //Magick::MagickImportImagePixels(l.magickWand, 0, 0, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
     Magick::MagickConstituteImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
-    Magick::MagickResizeImage(l.magickWand, l.inputTileWidthRead, l.inputTileHeightRead, l.scaleMethod);
-    safeBmpAlloc2(&l.safeImgScaled, l.inputTileWidthRead, l.inputTileHeightRead);
-    Magick::MagickExportImagePixels(l.magickWand, 0, 0, l.inputTileWidthRead, l.inputTileHeightRead, "RGB", Magick::CharPixel, l.safeImgScaled.data);
+    Magick::MagickResizeImage(l.magickWand, l.inputSubTileWidthRead, l.inputSubTileHeightRead, l.scaleMethod);
+    safeBmpAlloc2(&l.safeImgScaled, l.inputSubTileWidthRead, l.inputSubTileHeightRead);
+    Magick::MagickExportImagePixels(l.magickWand, 0, 0, l.inputSubTileWidthRead, l.inputSubTileHeightRead, "RGB", Magick::CharPixel, l.safeImgScaled.data);
     //safeBmpInit(&l.safeImgScaled, (BYTE*) QueueAuthenticPixels(l.pImgScaled, 0, 0, l.inputTileWidthRead, l.inputTileHeightRead, NULL), l.inputTileWidthRead, l.inputTileHeightRead);  
     Magick::ClearMagickWand(l.magickWand);
     #endif
@@ -590,16 +603,16 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
   // if the grabbed original composite source image has different
   // dimensions (cx,cy) than what is need because of a margin
   // that is need to center the image the side of the grabbed image
-  if (l.inputTileWidthRead!=l.inputTileWidth || l.inputTileHeightRead!=l.inputTileHeight)
+  if (l.totalSubTiles==1 && (l.inputSubTileWidthRead!=l.inputTileWidth || l.inputSubTileHeightRead!=l.inputTileHeight))
   {
     safeBmpAlloc2(&l.sizedBitmap2, l.inputTileWidth, l.inputTileHeight);
     safeBmpByteSet(&l.sizedBitmap2, l.bkgdColor);
-    int64_t copyWidth = l.inputTileWidthRead;
+    int64_t copyWidth = l.inputSubTileWidthRead;
     if (l.xMargin + copyWidth > l.inputTileWidth)
     {
       copyWidth -= (l.xMargin + copyWidth) - l.inputTileWidth;
     }
-    int64_t copyHeight = l.inputTileHeightRead;
+    int64_t copyHeight = l.inputSubTileHeightRead;
     if (l.yMargin + copyHeight > l.inputTileHeight)
     {
       copyHeight -= (l.yMargin + copyHeight) - l.inputTileHeight;
@@ -611,7 +624,30 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     l.pBitmapSrc = &l.sizedBitmap2;
     l.pBitmapFinal = &l.sizedBitmap2;
   }          
-  else if (l.debugLevel > 0)
+  else if (l.totalSubTiles > 1)
+  {
+    int64_t copyWidth = l.inputSubTileWidthRead;
+    if (l.xMargin + copyWidth > l.inputTileWidth)
+    {
+      copyWidth -= (l.xMargin + copyWidth) - l.inputTileWidth;
+    }
+    int64_t copyHeight = l.inputSubTileHeightRead;
+    if (l.yMargin + copyHeight > l.inputTileHeight)
+    {
+      copyHeight -= (l.yMargin + copyHeight) - l.inputTileHeight;
+    }
+    int64_t xSubLoc = l.xSubTile * (int64_t) round((double) l.inputTileWidth / (double) l.totalSubTiles);
+    int64_t ySubLoc = l.ySubTile * (int64_t) round((double) l.inputTileHeight / (double) l.totalSubTiles);
+    xSubLoc += l.xMargin;
+    ySubLoc += l.yMargin;
+    if (copyWidth > 0 && copyHeight > 0)
+    {
+      safeBmpCpy(&l.bitmap1, xSubLoc, ySubLoc, l.pBitmapSrc, 0, 0, copyWidth, copyHeight);
+    }
+    l.pBitmapSrc = &l.bitmap1;
+    l.pBitmapFinal = &l.bitmap1;
+  }
+  if (l.debugLevel > 1)
   {
     std::string preTileName = l.tileName;
     std::string errMsg;
@@ -625,12 +661,42 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
 }
 
 
+void SlideConvertor::printPercDone(SlideLevel& l)
+{
+  if (l.outputType == OLYVSLIDE_SCANONLY)
+  {
+    l.perc=(int)(((double) l.ySrc / (double) l.srcTotalHeight) * 100);
+  }
+  else
+  {
+    l.perc=(int)(((double) l.yDest / (double) l.outputLvlTotalHeight) * 100);
+  }
+  if (l.perc>100)
+  {
+    l.perc=100;
+  }
+  if (l.perc>l.percOld)
+  {
+    l.percOld=l.perc;
+    retractCursor();
+    std::cout << l.perc << "% done...    " << std::flush;
+  }
+  else if (l.onePercHit==false)
+  {
+    retractCursor();
+    std::cout << l.perc << "% done...    " << std::flush;
+    l.onePercHit = true;
+  }
+}
+
+
 int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, bool flushArchive, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2)
 {
   std::ostringstream output;
   SlideLevel l;
 
   l.debugLevel = mDebugLevel;
+  l.maxMemory = mMaxMemory;
   l.outputType = mOutputType;
   if (scanBkgd == true)
   {
@@ -704,6 +770,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.grabHeightA=round((double) l.inputTileHeight * l.yScale);
     l.grabWidthB=round((double) l.finalOutputWidth * l.xScale);
     l.grabHeightB=round((double) l.finalOutputHeight * l.yScale);
+
     l.grabWidthL2=round(256.0 * (double) l.srcTotalWidthL2 / (double) l.destTotalWidth);
     l.grabHeightL2=round(256.0 * (double) l.srcTotalHeightL2 / (double) l.destTotalHeight);
   }
@@ -722,6 +789,21 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.grabWidthL2=l.srcTotalWidthL2;
     l.grabHeightL2=l.srcTotalHeightL2;
   }
+  l.totalSubTiles = 1;
+  int64_t totalGrabBytes = l.grabWidthB * l.grabHeightB * 3;
+  if (totalGrabBytes > l.maxMemory && l.outputType != OLYVSLIDE_SCANONLY)
+  {
+    do
+    {
+      l.totalSubTiles *= 2;
+      totalGrabBytes = ceil((double) l.grabWidthB / (double) l.totalSubTiles) * ceil((double) l.grabHeightB / (double) l.totalSubTiles) * 3;
+    }
+    while (totalGrabBytes > l.maxMemory);
+    std::cout << "Using max memory " << (totalGrabBytes / (1024 * 1024)) << "mb for pixel resizer." << std::endl;
+    l.grabWidthA = round(l.grabWidthB / (double) l.totalSubTiles);
+    l.grabHeightA = round(l.grabHeightB / (double) l.totalSubTiles);
+  } 
+
   if ((scanBkgd || l.readOkL2) && mBlendByRegion==false)
   {
     l.xBlendFactor = l.magnifyX; 
@@ -858,6 +940,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   #endif
   try
   {
+    safeBmpClear(&l.bitmap1);
+    if (l.totalSubTiles > 1)
+    {
+      safeBmpAlloc2(&l.bitmap1, l.inputTileWidth, l.inputTileHeight);
+    }
     if ((l.readOkL2 || scanBkgd) && mBlendByRegion==false)
     {
       l.pBitmap4 = safeBmpAlloc(l.finalOutputWidth2, l.finalOutputHeight2);
@@ -883,8 +970,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       *logFile << std::endl;
     }
     
-    int perc=0, percOld=0;
-    bool onePercHit=false;
+    l.perc=0, l.percOld=0;
+    l.onePercHit=false;
     bool error=false;
     timeStart = time(NULL);
     l.ySrc=l.yStartSrc;
@@ -907,7 +994,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       dirPart2 = yRootStream.str();
       yRootStream << mPathSeparator << l.yTile;
       yRoot = yRootStream.str();
-      if (l.debugLevel > 0)
+      if (l.debugLevel > 1 && l.outputType != OLYVSLIDE_SCANONLY)
       {
         // Create the google maps directory structure up to the the y tile
         if (!my_mkdir(dirPart1) || !my_mkdir(dirPart2) || !my_mkdir(yRoot))
@@ -936,91 +1023,148 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       l.xDest = 0;
       l.xTile = l.xStartTile;
       // Loop until this cx block is complete or on error
-      for (l.xSrc=l.xStartSrc; round(l.xSrc)<l.srcTotalWidth && l.xDest<l.outputLvlTotalWidth && error==false; l.xSrc += l.grabWidthB) 
+      for (l.xSrc=l.xStartSrc; round(l.xSrc) < l.srcTotalWidth && l.xDest<l.outputLvlTotalWidth && error==false; l.xSrc += l.grabWidthB) 
       {
-        bool writeOk=false;
         std::ostringstream tileNameStream, tileNameStreamZip;
         std::string errMsg;
-        if (l.xSrc + l.grabWidthA < 1.0 || l.ySrc + l.grabHeightA < 1.0) continue;
+        if (l.xSrc + l.grabWidthB < 1.0 || l.ySrc + l.grabHeightB < 1.0) continue;
         tileNameStream << yRoot << mPathSeparator << l.xTile << ".jpg";
         tileNameStreamZip << yRootZip << ZipFile::mZipPathSeparator << l.xTile << ".jpg";
         l.tileName = tileNameStream.str();
-        l.xSrcRead = l.xSrc;
-        l.ySrcRead = l.ySrc;
-        double grabWidthReadDec = l.grabWidthA;
-        double grabHeightReadDec = l.grabHeightA;
-        l.inputTileWidthRead = l.inputTileWidth;
-        l.inputTileHeightRead = l.inputTileHeight;
-        l.xMargin = 0;
-        l.yMargin = 0;
-        if (l.xSrc < 0.0)
+
+        l.inputSubTileWidthRead = (int64_t) round((double) l.inputTileWidth / (double) l.totalSubTiles);
+        l.inputSubTileHeightRead = (int64_t) round((double) l.inputTileHeight / (double) l.totalSubTiles);
+        bool readOkSrc=false;
+        int readSubTiles=0;
+        if (l.totalSubTiles > 1)
         {
-          grabWidthReadDec=l.grabWidthA + l.xSrc;
-          l.xSrcRead = 0.0;
-          l.xMargin = l.xCenter;
+          safeBmpByteSet(&l.bitmap1, l.bkgdColor);
         }
-        if (l.ySrc < 0.0)
-        {
-          grabHeightReadDec=l.grabHeightA + l.ySrc;
-          l.ySrcRead = 0.0;
-          l.yMargin = l.yCenter;
-        }
-        if (l.xSrcRead + grabWidthReadDec > (double) l.srcTotalWidth)
-        {
-          grabWidthReadDec = (double) l.srcTotalWidth - l.xSrcRead;
-          l.inputTileWidthRead = round(grabWidthReadDec * l.xScaleReverse);
-        }
-        if (l.ySrcRead + grabHeightReadDec > (double) l.srcTotalHeight)
-        {
-          grabHeightReadDec = (double) l.srcTotalHeight - l.ySrcRead;
-          l.inputTileHeightRead = round(grabHeightReadDec * l.yScaleReverse);
-        }
-        if (l.xSrc < 0.0 || l.ySrc < 0.0)
-        {
-          l.inputTileWidthRead = round(grabWidthReadDec * l.xScaleReverse);
-          l.inputTileHeightRead = round(grabHeightReadDec * l.yScaleReverse);
-        }
-        l.grabWidthRead = round(grabWidthReadDec);
-        l.grabHeightRead = round(grabHeightReadDec);
-        
-        safeBmpClear(&l.bitmap1);
+        l.pBitmapSrc = NULL;
+        double xSrcStart2=l.xSrc;
+        double ySrcStart2=l.ySrc;
+
+        safeBmpClear(&l.subTileBitmap);
         safeBmpClear(&l.safeImgScaled);
-        safeBmpClear(&l.safeScaledL2Mini);
-        safeBmpClear(&l.safeScaledL2Mini2);
-        bool allocSuccess = slide->allocate(&l.bitmap1, l.olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
-        assert(allocSuccess);
-        safeBmpByteSet(&l.bitmap1, l.bkgdColor);
-        l.pBitmapSrc = &l.bitmap1;
-        
         safeBmpClear(&l.sizedBitmap);
         safeBmpClear(&l.sizedBitmap2);
         l.pImgScaled = NULL;
+        // this tile needs to be the same with and length as final output width and length
+        for (l.ySubTile=0; l.ySubTile < l.totalSubTiles && l.ySrc < l.srcTotalHeight; l.ySubTile++)
+        {
+          l.xSrc=xSrcStart2;
+          for (l.xSubTile=0; l.xSubTile < l.totalSubTiles && l.xSrc < l.srcTotalWidth; l.xSubTile++)
+          {
+            if (l.xSrc + l.grabWidthA < 1.0 || l.ySrc + l.grabHeightA < 1.0)
+            {
+              l.xSrc += l.grabWidthA;
+              continue;
+            }
+            safeBmpClear(&l.subTileBitmap);
+            safeBmpClear(&l.safeImgScaled);
+            safeBmpClear(&l.sizedBitmap);
+            safeBmpClear(&l.sizedBitmap2);
+            l.pImgScaled = NULL;
+            
+            l.xSrcRead = l.xSrc;
+            l.ySrcRead = l.ySrc;
+            double grabWidthReadDec = l.grabWidthA;
+            double grabHeightReadDec = l.grabHeightA;
+            l.inputSubTileWidthRead = (int64_t) round((double) l.inputTileWidth / (double) l.totalSubTiles);
+            l.inputSubTileHeightRead = (int64_t) round((double) l.inputTileHeight / (double) l.totalSubTiles);
+            l.xMargin = 0;
+            l.yMargin = 0;
+            if (l.xSrc < 0.0)
+            {
+              grabWidthReadDec=l.grabWidthA + l.xSrc;
+              l.xSrcRead = 0.0;
+              l.xMargin = l.xCenter - (l.xSubTile * l.inputSubTileWidthRead);
+            }
+            if (l.ySrc < 0.0)
+            {
+              grabHeightReadDec=l.grabHeightA + l.ySrc;
+              l.ySrcRead = 0.0;
+              l.yMargin = l.yCenter - (l.ySubTile * l.inputSubTileHeightRead);
+            }
+            if (l.xSrcRead + grabWidthReadDec > (double) l.srcTotalWidth)
+            {
+              grabWidthReadDec = (double) l.srcTotalWidth - l.xSrcRead;
+              l.inputSubTileWidthRead = round(grabWidthReadDec * l.xScaleReverse);
+            }
+            if (l.ySrcRead + grabHeightReadDec > (double) l.srcTotalHeight)
+            {
+              grabHeightReadDec = (double) l.srcTotalHeight - l.ySrcRead;
+              l.inputSubTileHeightRead = round(grabHeightReadDec * l.yScaleReverse);
+            }
+            if (l.xSrc < 0.0 || l.ySrc < 0.0)
+            {
+              l.inputSubTileWidthRead = round(grabWidthReadDec * l.xScaleReverse);
+              l.inputSubTileHeightRead = round(grabHeightReadDec * l.yScaleReverse);
+            }
+            l.grabWidthRead = round(grabWidthReadDec);
+            l.grabHeightRead = round(grabHeightReadDec);
+            slide->allocate(&l.subTileBitmap, olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
+            l.pBitmapSrc = &l.subTileBitmap;
+            safeBmpByteSet(&l.subTileBitmap, l.bkgdColor);
+            
+            l.readWidth=0;
+            l.readHeight=0;
+            if (l.pBitmapSrc->data == NULL)
+            {
+              error = true;
+              break;
+            }
+            if (l.debugLevel > 2)
+            {
+              *logFile << " slide->read(x=" << l.xSrcRead << " y=" << l.ySrcRead << " grabWidthA=" << l.grabWidthRead << " grabHeightA=" << l.grabHeightRead << " olympusLevel=" << l.olympusLevel << "); " << std::endl;
+            }
+            readOkSrc = slide->read(l.pBitmapSrc->data, l.olympusLevel, l.readDirection, l.readZLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false, &l.readWidth, &l.readHeight);
+            if (readOkSrc)
+            {
+              readSubTiles++;
+            }
+            else
+            {
+              std::cerr << "Failed to read olympus level " << l.olympusLevel << " jpeg tile @ x=" << l.xSrcRead << " y=" << l.ySrcRead << " width=" << l.grabWidthRead << " height=" << l.grabHeightRead << std::endl;
+            }
+            if (l.debugLevel > 2)
+            {
+              std::cout << "readWidth: " << l.readWidth << " readHeight: " << l.readHeight<< " grabWidth: " << l.grabWidthRead << " grabHeight: " << l.grabHeightRead << std::endl;
+            }
+            if (readOkSrc && l.outputType == OLYVSLIDE_SCANONLY)
+            {
+              scanSrcTileBkgd(l);
+            }
+            else if (readOkSrc)
+            {
+              processSrcTile(l);
+            }
+            safeBmpFree(&l.safeImgScaled);
+            safeBmpFree(&l.sizedBitmap);
+            if (l.pImgScaled && l.totalSubTiles > 1)
+            {
+              #ifndef USE_MAGICK
+              l.pImgScaled->release();
+              delete l.pImgScaled;
+              #endif
+              l.pImgScaled = 0;
+              safeBmpFree(&l.subTileBitmap);
+            }
+            l.xSrc += l.grabWidthA;
+            printPercDone(l);
+          }
+          l.ySrc += l.grabHeightA;
+        }
+        l.xSrc = xSrcStart2;
+        l.ySrc = ySrcStart2;
+        l.xSrcRead = l.xSrc;
+        l.ySrcRead = l.ySrc;
+        safeBmpClear(&l.safeScaledL2Mini);
+        safeBmpClear(&l.safeScaledL2Mini2);
         l.pImgScaledL2Mini = NULL;
-        
-        l.readWidth=0;
-        l.readHeight=0;
-        bool readOkSrc=false;
-        if (l.pBitmapSrc->data)
+        if (readSubTiles > 0 && l.outputType != OLYVSLIDE_SCANONLY) 
         {
-          if (l.debugLevel > 1)
-          {
-            *logFile << " slide->read(x=" << l.xSrcRead << " y=" << l.ySrcRead << " grabWidthA=" << l.grabWidthRead << " grabHeightA=" << l.grabHeightRead << " olympusLevel=" << l.olympusLevel << "); " << std::endl;
-          }
-          readOkSrc=slide->read(l.pBitmapSrc->data, l.olympusLevel, l.readDirection, l.readZLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false, &l.readWidth, &l.readHeight);
-          if (l.debugLevel > 2)
-          {
-            std::cout << "readWidth: " << l.readWidth << " readHeight: " << l.readHeight<< " grabWidth: " << l.grabWidthRead << " grabHeight: " << l.grabHeightRead << std::endl;
-          }
-        }
-        if (readOkSrc && l.outputType == OLYVSLIDE_SCANONLY)
-        {
-          scanSrcTileBkgd(l);
-        }
-        else if (readOkSrc)
-        {
-          std::string errMsg;
-          bool compressOk=true;
-          processSrcTile(l);
+          bool writeOk=false;
           if (l.readOkL2)
           {
             blendL2WithSrc(l);  
@@ -1030,8 +1174,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             BYTE* pJpegBytes = NULL;
             unsigned long outSize = 0;
             std::string tileName = tileNameStreamZip.str();
-            compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, l.quality, &errMsg, &outSize);
-            if (compressOk && mZip->addFile(tileName, pJpegBytes, outSize)==0)
+            bool compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, l.quality, &errMsg, &outSize);
+            if (compressOk && mZip->addFile(tileName, pJpegBytes, outSize)==ZIP_OK)
             {
               writeOk=true;
             }
@@ -1051,10 +1195,6 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             {
               writeOk=mTif->writeImage(l.pBitmapFinal->data);
             }
-          }
-          else if (l.outputType == OLYVSLIDE_SCANONLY)
-          {
-            writeOk=true;
           }
           if (writeOk==false)
           {
@@ -1076,10 +1216,6 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             error = true;
           }
         }
-        else
-        {
-          std::cerr << "Failed to read olympus level " << l.olympusLevel << " jpeg tile @ x=" << l.xSrcRead << " y=" << l.ySrcRead << " width=" << l.grabWidthRead << " height=" << l.grabHeightRead << std::endl;
-        }
         tileCleanup(l);
         l.xDest += l.finalOutputWidth2;
         l.xTile++;
@@ -1087,40 +1223,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       l.yDest += l.finalOutputHeight2;
       l.ySrc += l.grabHeightB;
       l.yTile++;
-      if (l.outputType == OLYVSLIDE_SCANONLY)
-      {
-        perc=(int)(((double) l.ySrc / (double) l.srcTotalHeight) * 100);
-      }
-      else
-      {
-        perc=(int)(((double) l.yDest / (double) l.outputLvlTotalHeight) * 100);
-      }
-      if (perc>100)
-      {
-        perc=100;
-      }
-      if (perc==100 && flushArchive && l.outputType == OLYVSLIDE_GOOGLE)
-      {
-        if (mZip->flushArchive() != 0)
-        {
-          std::cerr << "Failed to write zip file '" << mOutputFile << "' reason: " << mZip->getErrorMsg() << std::endl;
-
-          error = true;
-        }
-      }
-      if (perc>percOld)
-      {
-        percOld=perc;
-        retractCursor();
-        std::cout << perc << "% done...    " << std::flush;
-      }
-      else if (onePercHit==false)
-      {
-        retractCursor();
-        std::cout << perc << "% done...    " << std::flush;
-        onePercHit = true;
-      }
-    }  
+      printPercDone(l);
+    }
     if (l.outputType == OLYVSLIDE_TIF)
     {
       bool success = mTif->writeDirectory();
@@ -1141,8 +1245,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     std::cout << msg << std::endl;
     if (mCreateLog) *logFile << msg << std::endl;
     error = true;
+    exit(1);
   }
   safeBmpFree(l.pBitmap4);
+  safeBmpFree(&l.bitmap1);
   #ifdef USE_MAGICK
   if (l.magickWand) 
   {
@@ -1329,7 +1435,7 @@ int SlideConvertor::convert2Gmap()
 }
 
 
-int SlideConvertor::open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset, int64_t bestYOffset, int outputType, int debugLevel)
+int SlideConvertor::open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset, int64_t bestYOffset, int maxMemory, int outputType, int debugLevel)
 {
   mValidObject = false;
   mDebugLevel = debugLevel;
@@ -1342,11 +1448,11 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
   }
   slide = new CompositeSlide();
   errMsg="";
-  if (slide->open(inputFile.c_str(), useOpenCV, markOutline, createLog, bestXOffset, bestYOffset, &mpImageL2)==false)
+  if (slide->open(inputFile.c_str(), useOpenCV, markOutline, debugLevel, bestXOffset, bestYOffset, &mpImageL2)==false)
   {
     return 1;
   }
-
+  mMaxMemory = maxMemory;
   mOutputFile = outputFile;
   mOutputDir = outputFile;
   mOutputType = outputType;
@@ -1565,7 +1671,9 @@ int main(int argc, char** argv)
   static int outputType = 0;
   int quality = 85;
   int debugLevel = 0;
-  char syntax[] = "syntax: olyvslideconv -b=[on,off] -l=[on,off] -o=[on,off] -d=[0-3] -h=[on,off] -r=[on,off] -x=[bestXOffset] -y=[bestYOffset] -o=[on,off] -z=[on,off] [--tiff, --google] <inputfolder> <outputfile> \nFlags:\t--tiff output to tif file.\n\t--google output to google maps format.\n\t-b blend the top level with the middle level. Default on.\n\t-l log general information about the slide.\n\t-d Debug mode, output debugging info and files. Default 0. The higher the more debugging output. Sets logging on as well.\n\t-r Blend the top level with the middle level by region, not by empty background, default off.\n\t-h highlight visible areas with a black border. Default off.\n\t-q Set minimal jpeg quality percentage. Default 85 for level 0, 90 for level 1, and 95 for level 2 and above.\n\t-o Use opencv (computer vision) to calculate the offset for the upper and higher level (almost never required).\n\t-x and -y Optional: set best X, Y offset of image if upper and lower pyramid levels are not aligned.\n\t-z Process Z-stack if the image has one. Default off.\n";
+  int maxResizeMemory = MAX_RESIZE_MEMORY;
+  int maxJpgCacheMemory = MAX_JPG_CACHE_MEMORY;
+  char syntax[] = "syntax: olyvslideconv -b=[on,off] -l=[on,off] -o=[on,off] -d=[0-3] -h=[on,off] -r=[on,off] -x=[bestXOffset] -y=[bestYOffset] -o=[on,off] -z=[on,off] [--tiff, --google] <inputfolder> <outputfile> \nFlags:\t--tiff output to tif file.\n\t--google output to google maps format.\n\t-b blend the top level with the middle level. Default on.\n\t-l log general information about the slide.\n\t-d Debug mode, output debugging info and files. Default 0. The higher the more debugging output. Sets logging on as well if greater than 1.\n\t-m Specify max memory size of pixel rescaler/resizer in megabytes, default 512mb.\n\t-j Specify max jpg cache size in megabytes, default 256mb.\n\t-r Blend the top level with the middle level by region, not by empty background, default off.\n\t-h highlight visible areas with a black border. Default off.\n\t-q Set minimal jpeg quality percentage. Default 85 for level 0, 90 for level 1, and 95 for level 2 and above.\n\t-o Use opencv (computer vision) to calculate the offset for the upper and higher level (almost never required).\n\t-x and -y Optional: set best X, Y offset of image if upper and lower pyramid levels are not aligned.\n\t-z Process Z-stack if the image has one. Default off.\n";
 
   if (argc < 3)
   {
@@ -1578,19 +1686,21 @@ int main(int argc, char** argv)
   char emptyString[] = "";
   static struct option longOptions[] =
     {
-      {"google",      no_argument,        &outputType,  OLYVSLIDE_GOOGLE},
-      {"tiff",        no_argument,        &outputType,  OLYVSLIDE_TIF},
-      {"blend",       required_argument,  0,             'b'},
-      {"debug",       required_argument,  0,             'd'},
-      {"log",         required_argument,  0,             'l'},
-      {"highlight",   required_argument,  0,             'h'},
-      {"opencv",      required_argument,  0,             'o'},
-      {"region",      required_argument,  0,             'r'},
-      {"quality",     required_argument,  0,             'q'},
-      {"xoffset",     required_argument,  0,             'x'},
-      {"yoffset",     required_argument,  0,             'y'},
-      {"zstack",      required_argument,  0,             'z'},
-      {0,             0,                  0,             0 }
+      {"google",            no_argument,        &outputType,  OLYVSLIDE_GOOGLE},
+      {"tiff",              no_argument,        &outputType,  OLYVSLIDE_TIF},
+      {"blend",             required_argument,  0,             'b'},
+      {"debug",             required_argument,  0,             'd'},
+      {"log",               required_argument,  0,             'l'},
+      {"highlight",         required_argument,  0,             'h'},
+      {"opencv",            required_argument,  0,             'o'},
+      {"region",            required_argument,  0,             'r'},
+      {"quality",           required_argument,  0,             'q'},
+      {"xoffset",           required_argument,  0,             'x'},
+      {"yoffset",           required_argument,  0,             'y'},
+      {"zstack",            required_argument,  0,             'z'},
+      {"max-resize-memory", required_argument,  0,             'm'},   
+      {"max-jpg-cache",     required_argument,  0,             'j'},
+      {0,                   0,                  0,             0 }
     };
   
   while((opt = getopt_long(argc, argv, "b:d:h:r:q:x:y:z:", longOptions, &optIndex)) != -1)
@@ -1620,6 +1730,12 @@ int main(int argc, char** argv)
         #ifndef USE_MAGICK
         useOpenCV = getBoolOpt(optarg, invalidOpt);
         #endif
+        break;
+      case 'm':
+        maxResizeMemory = getIntOpt(optarg, invalidOpt);
+        break;
+      case 'j':
+        maxJpgCacheMemory = getIntOpt(optarg, invalidOpt);
         break;
       case 'x':
         bestXOffset = getIntOpt(optarg, invalidOpt);
@@ -1664,64 +1780,82 @@ int main(int argc, char** argv)
       outfile=argv[optind];
     }
   }
-  if (debugLevel > 0) createLog = true;
+  if (debugLevel > 1) createLog = true;
   
   if (infile.length() == 0 || outfile.length() == 0)
   {
     std::cerr << syntax;
     return 1;
   }
-  if (outputType==OLYVSLIDE_GOOGLE)
-  {
-    std::cout << "Output format: Zipped Google Maps" << std::endl;
-  }
-  else if (outputType==OLYVSLIDE_TIF)
-  {
-    std::cout << "Output format: TIFF/SVS" << std::endl;
-  }
-  else
+  if (outputType==0)
   {
     std::cerr << "No output format specified. Please use --tiff or --google to specify tiff file or google maps zip output." << std::endl;
     std::cerr << syntax;
     return 1;
   }
-  
-  std::cout << "Set logging: " << bool2txt(createLog) << std::endl;
-  std::cout << "Set debug level: " << debugLevel << std::endl;
-  std::cout << "Set minimum quality: " << quality << std::endl;
-  std::cout << "Use OpenCV/computer vision: " << bool2txt(useOpenCV) << std::endl;
-  std::cout << "Set blend top level: " << bool2txt(blendTopLevel) << std::endl;
-  std::cout << "Set border highlight: " << bool2txt(doBorderHighlight) << std::endl;
-  std::cout << "Set blend by region: " << bool2txt(blendByRegion) << std::endl;
-  if (xOffsetSet) 
+  if (maxResizeMemory < 32)
   {
-    std::cout << "Set bestXOffset: " << bestXOffset << std::endl;
+    std::cerr << "Max resize memory must be a size greater than or equal to 32mb." << std::endl;
+    return 1;
   }
-  else
+  if (maxJpgCacheMemory == 0)
   {
-    std::cout << "Set bestXOffset: default" << std::endl;
+    maxJpgCacheMemory = 1;
   }
-  if (yOffsetSet)
+
+  if (debugLevel > 0)
   {
-    std::cout << "Set bestYOffset: " << bestYOffset << std::endl;
+    if (outputType==OLYVSLIDE_GOOGLE)
+    {
+      std::cout << "Output format: Zipped Google Maps" << std::endl;
+    }
+    else if (outputType==OLYVSLIDE_TIF)
+    {
+      std::cout << "Output format: TIFF/SVS" << std::endl;
+    }
+    std::cout << "Set logging: " << bool2txt(createLog) << std::endl;
+    std::cout << "Set debug level: " << debugLevel << std::endl;
+    std::cout << "Set minimum quality: " << quality << std::endl;
+    std::cout << "Use OpenCV/computer vision: " << bool2txt(useOpenCV) << std::endl;
+    std::cout << "Set blend top level: " << bool2txt(blendTopLevel) << std::endl;
+    std::cout << "Set border highlight: " << bool2txt(doBorderHighlight) << std::endl;
+    std::cout << "Set blend by region: " << bool2txt(blendByRegion) << std::endl;
+    if (xOffsetSet) 
+    {
+      std::cout << "Set bestXOffset: " << bestXOffset << std::endl;
+    }
+    else
+    {
+      std::cout << "Set bestXOffset: default" << std::endl;
+    }
+    if (yOffsetSet)
+    {
+      std::cout << "Set bestYOffset: " << bestYOffset << std::endl;
+    }
+    else
+    {
+      std::cout << "Set bestYOffset: default" << std::endl;
+    }
+    std::cout << "Set maximum resize memory: " << maxResizeMemory << "mb " << std::endl;
+    std::cout << "Set maximum jpg cache memory: " << maxJpgCacheMemory << "mb " << std::endl;
   }
-  else
-  {
-    std::cout << "Set bestYOffset: default" << std::endl;
-  }
+
+  maxResizeMemory *= 1024 * 1024;
+  jpgCache.setMaxOpen(maxJpgCacheMemory);
+
   #ifdef USE_MAGICK
   #if defined(__MINGW32__) || defined(__MINGW64__)
-  quickEnv("MAGICK_CODER_MODULE_PATH", getMagickCoreCoderPath(), 1);
-  quickEnv("MAGICK_CODER_FILTER_PATH", getMagickCoreFilterPath(), 1);
+  quickEnv("MAGICK_CODER_MODULE_PATH", getMagickCoreCoderPath(), debugLevel);
+  quickEnv("MAGICK_CODER_FILTER_PATH", getMagickCoreFilterPath(), debugLevel);
   #endif
-  quickEnv("MAGICK_MAP_LIMIT", MAGICK_MAP_LIMIT, 0);
-  quickEnv("MAGICK_MEMORY_LIMIT", MAGICK_MEMORY_LIMIT, 0);
-  quickEnv("MAGICK_DISK_LIMIT", MAGICK_DISK_LIMIT, 0);
-  quickEnv("MAGICK_AREA_LIMIT", MAGICK_AREA_LIMIT, 0);
+  quickEnv("MAGICK_MAP_LIMIT", MAGICK_MAP_LIMIT, debugLevel);
+  quickEnv("MAGICK_MEMORY_LIMIT", MAGICK_MEMORY_LIMIT, debugLevel);
+  quickEnv("MAGICK_DISK_LIMIT", MAGICK_DISK_LIMIT, debugLevel);
+  quickEnv("MAGICK_AREA_LIMIT", MAGICK_AREA_LIMIT, debugLevel);
   Magick::MagickWandGenesis();
   #endif
-  
-  error=slideConv.open(infile.c_str(), outfile.c_str(), useOpenCV, blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, createLog, quality, bestXOffset, bestYOffset, outputType, debugLevel);
+ 
+  error=slideConv.open(infile.c_str(), outfile.c_str(), useOpenCV, blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, createLog, quality, bestXOffset, bestYOffset, maxResizeMemory, outputType, debugLevel);
   if (error==0)
   {
     if (outputType == OLYVSLIDE_TIF)

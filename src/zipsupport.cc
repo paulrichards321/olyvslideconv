@@ -31,24 +31,9 @@ void ZipFile::setCompression(int method, int flags)
 
 int ZipFile::flushArchive()
 {
-  if (mZipArchive == NULL) return 0;
-  int status = zipClose_64(mZipArchive, NULL);
-  if (status==ZIP_OK)
-  {
-    mZipArchive = zipOpen64(mOutputFile.c_str(), APPEND_STATUS_ADDINZIP);
-    if (mZipArchive == NULL)
-    {
-      mErrMsg = strerror(errno); 
-      mDirNames.clear();
-      status = -1;
-    }
-  }
-  else
-  {
-    mErrMsg = strerror(errno); 
-    mDirNames.clear();
-  }
-  return status;
+  if (mZipArchive == NULL) return ZIP_OK;
+  //int status = zipFlush(mZipArchive, NULL);
+  return ZIP_OK;
 }
 
 

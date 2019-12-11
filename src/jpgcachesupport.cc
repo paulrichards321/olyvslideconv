@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <algorithm>
 #include "jpgcachesupport.h"
 
+JpgCache jpgCache;
+
 void JpgCache::release(Jpg *pjpg)
 {
   for (std::vector<Jpg*>::iterator it=mjpgs.begin(); it<mjpgs.end(); it++)
