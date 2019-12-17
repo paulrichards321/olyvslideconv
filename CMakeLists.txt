@@ -89,6 +89,7 @@ set( MAIN_SRC
 )
 
 set( MAIN_HEADERS
+  include/olyvslideconv.h
   include/composite.h
   include/imagesupport.h
   include/jpgsupport.h
@@ -119,6 +120,7 @@ if (WIN32 OR WIN64 OR ${CMAKE_SYSTEM_NAME} MATCHES "Windows")
   endif()
 else()
   list(APPEND MAIN_HEADERS include/console-unix.h)
+  list(APPEND MAIN_SRC src/console-unix.cc)
 endif()
 
 include_directories( ${MAGICKCORE_INCLUDE_DIRS} ${MAGICKWAND_INCLUDE_DIRS} ${OPENCV_INCLUDE_DIRS} ${LIBJPEG_INCLUDE_DIRS} ${LIBTIFF_INCLUDE_DIRS} ${MINIZIP_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR}/include)

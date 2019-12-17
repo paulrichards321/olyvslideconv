@@ -45,6 +45,7 @@ const char* getMagickCoreLibraryPath();
 #endif 
 #include "safebmp.h"
 
+
 inline char separator()
 {
 #if defined _WIN32 || defined __CYGWIN__ || defined _WIN64
@@ -153,7 +154,7 @@ public:
   int64_t mtotalWidth, mtotalHeight;
   int64_t mdetailedWidth, mdetailedHeight;
   bool mIsPreviewSlide;
-  int mquality;
+  int mQuality;
   std::vector<JpgFileXY> mxyArr;
   std::vector<JpgXY> mxSortedArr;
   bool mzStackExists[2][4];
@@ -187,14 +188,14 @@ protected:
   int mmagnification;
   int mTotalZLevels, mTotalTopZLevels, mTotalBottomZLevels;
   int64_t mBestXOffset, mBestYOffset;
-  bool mDoBorderHighlight;
+  bool mOptBorder;
 public:
   CompositeSlide(); 
   ~CompositeSlide() { close(); }
   bool isValidObject() { return mValidObject; }
   void initialize();
   void close();
-  bool open(const std::string& inputDir, bool useOpenCV = false, bool doBorderHighlight = false, int debugLevel = 0, int64_t bestXOffset = -1, int64_t bestYOffset = -1, safeBmp **pImageL2 = NULL); 
+  bool open(const std::string& inputDir, int options, int debugLevel = 0, int64_t bestXOffset = -1, int64_t bestYOffset = -1, safeBmp **pImageL2 = NULL); 
   bool read(int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
   bool read(BYTE *pBmp, int level, int direction, int zLevel, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale, int64_t *readWidth, int64_t *readHeight);
   bool allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
@@ -210,7 +211,7 @@ public:
   static bool testHeader(BYTE*, int64_t);
   bool isPreviewSlide(size_t level);
   int getMagnification() { return (mValidObject == true ? mmagnification : 0); }
-  int getQuality(size_t level) { if (mValidObject == true && level < mConf.size() && mConf[level]->mfound) { return mConf[level]->mquality; } else { return 0; } }
+  int getQuality(size_t level) { if (mValidObject == true && level < mConf.size() && mConf[level]->mfound) { return mConf[level]->mQuality; } else { return 0; } }
   long long getBaseWidth() { return (mValidObject == true ? mbaseWidth : 0); }
   long long getBaseHeight() { return (mValidObject == true ? mbaseHeight : 0); }
   int64_t getActualWidth(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mfound ? mConf[level]->mtotalWidth : 0); }

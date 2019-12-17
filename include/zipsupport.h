@@ -24,7 +24,7 @@ protected:
 public:
   ~ZipFile() { closeArchive(); }
   static const char mZipPathSeparator = '/';
-  int openArchive(std::string filename, int64_t maxBytes, int flags);
+  int openArchive(std::string filename, int flags);
   void setCompression(int method, int flags);
   int flushArchive();
   int closeArchive();

@@ -8,30 +8,38 @@
 safeBmp * safeBmpAlloc(int64_t width, int64_t height)
 {
   //int64_t stideWidth = cairoFormatStrideForWidth(CAIROFORMATRGB24, width);
+  safeBmp *bmp=NULL;
   int64_t strideWidth = width * 3;
-  safeBmp *bmp = new safeBmp;
-  if (bmp == NULL)
-  {
-    return NULL;
-  }
-  bmp->height = height;
-  bmp->width = width;
-  bmp->strideWidth = strideWidth;
   try 
   {
-    bmp->data = new BYTE[strideWidth * height];
+    bmp = new safeBmp;
+    bmp->data = NULL;
+    if (strideWidth > 0 && height > 0)
+    {
+      bmp->data = new BYTE[strideWidth * height];
+      bmp->height = height;
+      bmp->width = width;
+      bmp->strideWidth = strideWidth;
+    }
   }
   catch (std::bad_alloc &xa)
-  {
-    bmp->data = NULL;
-  }
-  if (bmp->data == NULL)
   {
     std::cerr << "Failed to allocate image of memory size=" << ((strideWidth * height) / 1024) << " kb." << std::endl;
     exit(1);
   }
-  bmp->freeData = true;
-  bmp->freePtr = true;
+  if (bmp->data)
+  {
+    bmp->freeData = true;
+    bmp->freePtr = true;
+  }
+  else
+  {
+    bmp->height = 0;
+    bmp->width = 0;
+    bmp->strideWidth = 0;
+    bmp->freeData = false;
+    bmp->freePtr = true;
+  }
   return bmp;
 }
 
@@ -41,24 +49,35 @@ BYTE* safeBmpAlloc2(safeBmp *bmp, int64_t width, int64_t height)
   //int64_t stideWidth = cairoFormatStrideForWidth(CAIROFORMATRGB24, width);
   bmp->data = NULL;
   int64_t strideWidth = width * 3;
-  bmp->strideWidth = strideWidth;
-  bmp->height = height;
-  bmp->width = width;
   try
   {
-    bmp->data = new BYTE[strideWidth * height];
+    if (strideWidth > 0 && height > 0)
+    {
+      bmp->data = new BYTE[strideWidth * height];
+    }
   }
   catch (std::bad_alloc &xa)
   {
     bmp->data = NULL;
-  }
-  if (bmp->data == NULL)
-  {
     std::cerr << "Failed to allocate image of memory size=" << ((strideWidth * height) / 1024) << " kb." << std::endl;
     exit(1);
   }
-  bmp->freeData = true;
-  bmp->freePtr = false;
+  if (bmp->data)
+  {
+    bmp->freeData = true;
+    bmp->freePtr = false;
+    bmp->strideWidth = strideWidth;
+    bmp->height = height;
+    bmp->width = width;
+  }
+  else
+  {
+    bmp->freeData = false;
+    bmp->freePtr = false;
+    bmp->strideWidth = 0;
+    bmp->height = 0;
+    bmp->width = 0;
+  }
   return bmp->data;
 }
 
@@ -83,7 +102,6 @@ void safeBmpInit(safeBmp *bmp, BYTE *bmpPtr, int64_t width, int64_t height)
 {
   bmp->width = width;
   bmp->strideWidth = width * 3;
-  //  bmp.strideWidth = cairoFormatStrideForWidth(CAIROFORMATRGB24, width);
   bmp->height = height;
   bmp->data = bmpPtr;
   bmp->freeData = false;

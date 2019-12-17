@@ -26,39 +26,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cctype>
 #include <cassert>
 #include <sys/stat.h>
-#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
-#include "console-mswin.h"
-#include "getopt-mswin.h"
-#else
-#include "console-unix.h"
-#include <unistd.h>
-#include <getopt.h>
-#endif
-#include "jpgcachesupport.h"
-#include "jpgsupport.h"
-#include "tiffsupport.h"
-#include "zipsupport.h"
-#include "composite.h"
-#include "safebmp.h"
-#include "blendbkgd.h"
+#include "olyvslideconv.h"
 
-#define MAX_RESIZE_MEMORY 512
-#define MAX_JPG_CACHE_MEMORY 256
-
-#define OLYVSLIDE_SCANONLY 3
-#define OLYVSLIDE_GOOGLE   2
-#define OLYVSLIDE_TIF      1
-
-extern JpgCache jpgCache;
-
-std::string bool2txt(bool cond)
+std::string bool2Txt(bool cond)
 {
   std::string result = "false";
   if (cond) result = "true";
   return result;
 }
 
-void quickEnv(const char* var, const char* value, int debugLevel)
+std::string boolInt2Txt(int cond)
+{
+  std::string result = "false";
+  if (cond) result = "true";
+  return result;
+}
+
+
+void quickEnv(const char* var, const char* value, int optDebug)
 {
   char full_char[512];
   std::string full=var;
@@ -67,27 +52,129 @@ void quickEnv(const char* var, const char* value, int debugLevel)
   const char * full_const = full.c_str();
   full_char[0] = 0;
   strncpy(full_char, full_const, sizeof(full_char)-1);
-  if (debugLevel > 0)
+  if (optDebug > 0)
   {
     std::cout << "ENV: " << full_char << std::endl;
   }
   putenv(full_char);
 }
 
-class SlideLevel
+
+int getBoolOpt(const char *optarg)
 {
-protected:
-  friend class SlideConvertor;
-  int debugLevel;
-  int outputType;
+  const char *available[14] = { 
+    "1", 
+    "true", "TRUE", 
+    "enable", "ENABLE", 
+    "on", "ON", 
+    "0", 
+    "false", "FALSE", 
+    "disable", "DISABLE", 
+    "off", "OFF" 
+  };
+  if (optarg == NULL) 
+  {
+    return 1;
+  }
+  std::string optarg2 = optarg;
+  for (int i = 0; i < 14; i++)
+  {
+    if (optarg2.find(available[i]) != std::string::npos)
+    {
+      if (i < 7) return 1;
+      else return 0;
+    }
+  }
+  return 1;
+}
+
+
+int getBoolOpt(const char *optarg, bool& invalidOpt)
+{
+  const char *available[14] = { 
+    "1", 
+    "true", "TRUE", 
+    "enable", "ENABLE", 
+    "on", "ON", 
+    "0", 
+    "false", "FALSE", 
+    "disable", "DISABLE", 
+    "off", "OFF" 
+  };
+  if (optarg == NULL) 
+  {
+    return 1;
+  }
+  std::string optarg2 = optarg;
+  for (int i = 0; i < 14; i++)
+  {
+    if (optarg2.find(available[i]) != std::string::npos)
+    {
+      if (i < 7) return 1;
+      else return 0;
+    }
+  }
+  return 1;
+}
+
+
+int getIntOpt(const char *optarg, bool& invalidOpt)
+{
+  unsigned int i=0;
+  if (optarg==NULL)
+  {
+    invalidOpt = true;
+    return 0;
+  }
+  std::string optarg2 = optarg;
+  while (i < optarg2.length() && (optarg2[i]==' ' || optarg2[i]==':' || optarg2[i]=='=' || optarg2[i]=='\t')) i++;
+  optarg2 = optarg2.substr(i);
+  if (optarg2.length() > 0 && isdigit(optarg2[0]))
+  {
+    return atoi(optarg2.c_str());
+  }
+  invalidOpt = true;
+  return 0;
+}
+
+
+double getDoubleOpt(const char *optarg, bool& invalidOpt)
+{
+  unsigned int i=0;
+  if (optarg==NULL)
+  {
+    invalidOpt = true;
+    return 0;
+  }
+  std::string optarg2 = optarg;
+  while (i < optarg2.length() && (optarg2[i]==' ' || optarg2[i]==':' || optarg2[i]=='=' || optarg2[i]=='\t')) i++;
+  optarg2 = optarg2.substr(i);
+  if (optarg2.length() > 0 && isdigit(optarg2[0]))
+  {
+    return atof(optarg2.c_str());
+  }
+  invalidOpt = true;
+  return 0;
+}
+
+
+typedef struct slidelevel_t
+{
+  bool optTif;
+  bool optGoogle;
+  int optDebug;
+  int optQuality;
+  bool optUseGamma;
+  double optGamma;
+  int64_t optMaxMem;
+  bool optLog;
+  bool scanBkgd;
   int olympusLevel;
   int readDirection;
   int readZLevel;
   int outLevel;
   bool center;
   bool tiled;
-  bool scanBkgd;
-  int64_t maxMemory;
   int64_t srcTotalWidth;
   int64_t srcTotalHeight;
   int64_t srcTotalWidthL2;
@@ -99,7 +186,6 @@ protected:
   int finalOutputHeight, finalOutputHeight2;
   int inputTileWidth;
   int inputTileHeight;
-  int quality;
   int totalSubTiles;
   int xSubTile, ySubTile;
   int64_t readWidthL2;
@@ -166,8 +252,9 @@ protected:
   int yCenter;
   double xStartSrc;
   double yStartSrc;
-  int64_t xTile;
-  int64_t yTile;
+  int64_t xOutTile, xTileMap;
+  int64_t yOutTile, yTileMap;
+  int64_t xEndTile, yEndTile;
   int64_t xDest;
   int64_t yDest;
   int64_t outputLvlTotalWidth;
@@ -181,111 +268,28 @@ protected:
   Magick::MagickWand *magickWand;
   Magick::PixelWand *pixelWand;
 #endif
-  std::string tileName;
+  std::string *pTileName;
   int writeOutputWidth;
   int writeOutputHeight;
   int perc, percOld;
   bool onePercHit;
-public:
-  SlideLevel()
-  {
-    debugLevel=0;
-    outputType=0;
-    olympusLevel=0;
-    readDirection=0;
-    readZLevel=0;
-    outLevel=0;
-    center=false;
-    tiled=false;
-    scanBkgd=false;
-    srcTotalWidth=0;
-    srcTotalHeight=0;
-    srcTotalWidthL2=0;
-    srcTotalHeightL2=0;
-    L2Size=0;
-    destTotalWidth=0;
-    destTotalWidth2=0;
-    destTotalHeight=0;
-    destTotalHeight2=0;
-    finalOutputWidth=0;
-    finalOutputHeight=0;
-    inputTileWidth=0;
-    inputTileHeight=0;
-    quality=0;
-    readWidthL2=0;
-    readHeightL2=0;
-    readWidth=0;
-    readHeight=0;
-    grabWidthRead=0;
-    grabHeightRead=0;
-    magnifyX=0;
-    magnifyY=0;
-    destTotalWidthDec=0.0;
-    destTotalHeightDec=0.0;
-    xScale=0.0, yScale=0.0;
-    xScaleL2=0.0, yScaleL2=0.0;
-    xScaleReverse=0.0, yScaleReverse=0.0;
-    xScaleResize=0.0, yScaleResize=0.0;
-    xBlendFactor = 1.0;
-    yBlendFactor = 1.0;
-    xBkgdLimit=0;
-    yBkgdLimit=0;
-    grabWidthA=0, grabWidthB=0;
-    grabHeightA=0, grabHeightB=0;
-    grabWidthL2=0, grabHeightL2=0;
-    xSrcRead=0.0;
-    ySrcRead=0.0;
-    xSrc=0.0;
-    ySrc=0.0;
-    readOkL2=false;
-    inputTileWidthRead=0;
-    inputTileHeightRead=0;
-    xMargin=0;
-    yMargin=0;
-    #ifndef USE_MAGICK
-    scaleMethod=0;
-    scaleMethodL2=0;
-    #else
-    scaleMethod=Magick::MitchellFilter;
-    scaleMethodL2=Magick::MitchellFilter;
-    #endif
-    totalXSections=0, totalYSections=0;
-    bkgdColor=0;
-    xSubSections=NULL;
-    ySubSections=NULL;
-    bitmap1.data=NULL;
-    sizedBitmap.data=NULL;
-    sizedBitmap2.data=NULL;
-    pBitmapSrc=NULL;
-    pBitmapL2=NULL;
-    pBitmap4=NULL;
-    pBitmapFinal=NULL;
-    pImgScaled=NULL;
-    pImgScaledL2Mini=NULL;
-    bitmap4Size=0;
-    fillin=false;
-    xLevelOffset=0;
-    yLevelOffset=0;
-    xStartTile=0;
-    xCenter=0;
-    yCenter=0;
-    xStartSrc=0.0;
-    yStartSrc=0.0;
-    xTile=0;
-    yTile=0;
-    xDest=0;
-    yDest=0;
-    outputLvlTotalWidth=0;
-    outputLvlTotalHeight=0;
-    writeOutputWidth=0;
-    writeOutputHeight=0;
-  }
-};
+} SlideLevel;
 
 
 class SlideConvertor
 {
 protected:
+  bool mValidObject;
+  bool mOptTif;
+  bool mOptGoogle;
+  bool mOptBlend;
+  bool mOptRegion;
+  int mOptDebug;
+  bool mOptZStack;
+  bool mOptLog;
+  int64_t mOptMaxMem;
+  bool mOptUseGamma;
+  double mOptGamma;
   CompositeSlide *slide;
   Tiff *mTif;
   ZipFile *mZip;
@@ -296,41 +300,37 @@ protected:
   std::string mFileNameOnly;
   int64_t mBaseTotalWidth, mBaseTotalHeight;
   int64_t mBaseTotalWidth2, mBaseTotalHeight2;
-  bool mValidObject;
-  int mOutputType;
-  bool mBlendTopLevel, mBlendByRegion;
-  bool mCreateLog;
   int mBaseLevel;
-  bool mIncludeZStack;
   bool mCenter;
-  int mQuality;
+  int mOptQuality;
   int mStep, mZSteps;
   int mLastZLevel, mLastDirection;
   int mTopOutLevel;
   int64_t mMaxSide;
-  int mMaxMemory;
-  int mDebugLevel;
   safeBmp *mpImageL2;
   int64_t mTotalXSections, mTotalYSections;
   BlendSection **mxSubSections;
   BlendSection **mySubSections;
 public:
-  #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__)
+  #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) || defined(__MINGW__)
   static const char mPathSeparator='\\';
   #else
   static const char mPathSeparator='/';
   #endif
-  static const int64_t mMaxZipBufferBytes=1024000000LL;
 public:
   SlideConvertor();
   ~SlideConvertor() { closeRelated(); }
   void closeRelated();
   std::string getErrMsg() { return errMsg; }
-  int open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset, int64_t bestYOffset, int maxMemory, int outputType, int debugLevel);
+  void setGamma(bool optUseGamma, double optGamma) { mOptUseGamma = optUseGamma; mOptGamma = optGamma; }
+  void setDebugLevel(int optDebug) { mOptDebug = optDebug; }
+  void setQuality(int optQuality) { mOptQuality = optQuality; }
+  void setMaxMem(int64_t optMaxMem) { mOptMaxMem = optMaxMem; }
+  int open(std::string inputFile, std::string outputFile, int options, int64_t optXOffset, int64_t optYOffset);
   bool my_mkdir(std::string name);
   void calcCenters(int outLevel, int64_t& xCenter, int64_t& yCenter);
   int convert();
-  int outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, bool flushArchive, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2);
+  int outputLevel(int olympusLevel, int magnification, int outLevel, int options, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2);
   int checkFullL2(int64_t *pReadWidthL2, int64_t *pReadHeightL2, safeBmp **pFullL2);
   int convert2Tif();
   int convert2Gmap();
@@ -338,6 +338,7 @@ public:
   void blendL2WithSrc(SlideLevel &l);
   void scanSrcTileBkgd(SlideLevel& l);
   void processSrcTile(SlideLevel& l);
+  void processGamma(SlideLevel& l);
   void printPercDone(SlideLevel& l);
 };
 
@@ -369,7 +370,6 @@ SlideConvertor::SlideConvertor()
   mTif = 0;
   mZip = 0;
   logFile = 0;
-  mOutputType = 0;
   mCenter = false;
   mValidObject = false;
   mStep=0;
@@ -381,8 +381,8 @@ SlideConvertor::SlideConvertor()
   mBaseTotalHeight=0;
   mBaseTotalHeight2=0;
   mBaseLevel=0;
-  mIncludeZStack=true;
-  mQuality=90;
+  mOptZStack=getBoolOpt(SLIDE_DEFAULT_ZSTACK);
+  mOptQuality=SLIDE_DEFAULT_QUALITY;
   mpImageL2=NULL;
   mTotalXSections = 0;
   mTotalYSections = 0;
@@ -431,6 +431,34 @@ void SlideConvertor::tileCleanup(SlideLevel &l)
   safeBmpFree(&l.safeScaledL2Mini);
   safeBmpFree(&l.safeScaledL2Mini2);
 }
+
+
+void SlideConvertor::processGamma(SlideLevel &l)
+{
+  safeBmp* pSrc = l.pBitmapFinal;
+  BYTE* pBmpData = pSrc->data;
+  double invGamma = 1.0f/l.optGamma;
+
+  if (pSrc == NULL || pSrc->data == NULL) return;
+
+  int64_t strideWidth = pSrc->width * 3;
+  int64_t height = pSrc->height;
+
+  for (int64_t y=0; y < height; y++)
+  {
+    BYTE * pBmpData2 = pBmpData + (y * strideWidth);
+    for (int64_t x=0; x < strideWidth; x++)
+    {
+      double gamma = (double) *pBmpData2 / (double) 255.0f;
+      double powed = pow(gamma, invGamma); 
+      int value = round(powed * 255);
+      if (value > 255) value=255;
+      *pBmpData2 = (BYTE) value;
+      pBmpData2++;
+    }
+  }
+}
+
 
 // Scale the larger complete L2 image into a tiled smaller 
 // mini version
@@ -489,18 +517,18 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
     safeBmpByteSet(&l.safeScaledL2Mini2, l.bkgdColor);
     safeBmpCpy(&l.safeScaledL2Mini2, 0, 0, &l.safeScaledL2Mini, 0, 0, l.finalOutputWidth, l.finalOutputHeight);
   }
-  if (l.debugLevel > 1)
+  if (l.optDebug > 1)
   {
     std::string errMsg;
-    std::string l2TileName=l.tileName;
+    std::string l2TileName=*l.pTileName;
     l2TileName.append(".l2.jpg");
-    bool writeOk=my_jpeg_write(l2TileName, l.safeScaledL2Mini.data, l.finalOutputWidth2, l.finalOutputHeight2, l.quality, &errMsg);
+    bool writeOk=my_jpeg_write(l2TileName, l.safeScaledL2Mini.data, l.finalOutputWidth2, l.finalOutputHeight2, l.optQuality, &errMsg);
     if (!writeOk) 
     {
       std::cout << "Error writing debug file '" << l2TileName << "' errMsg: " << errMsg << std::endl;
     }
   }
-  if (mBlendByRegion)
+  if (mOptRegion)
   {
     // slide->blendLevelsByRegion(l.safeScaledL2Mini.data, l.pBitmapSrc, round(l.xSrc), round(l.ySrc), round(l.grabWidthA), round(l.grabHeightA), l.inputTileWidth, l.inputTileHeight, l.xScaleReverse, l.yScaleReverse, l.olympusLevel); 
     slide->blendLevelsByRegion(&l.safeScaledL2Mini, l.pBitmapSrc, round(l.xSrc), round(l.ySrc), l.xScaleReverse, l.yScaleReverse, l.olympusLevel); 
@@ -647,12 +675,12 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     l.pBitmapSrc = &l.bitmap1;
     l.pBitmapFinal = &l.bitmap1;
   }
-  if (l.debugLevel > 1)
+  if (l.optDebug > 1)
   {
-    std::string preTileName = l.tileName;
+    std::string preTileName = *l.pTileName;
     std::string errMsg;
     preTileName.append(".pre.jpg");
-    bool writeOk=my_jpeg_write(preTileName, l.pBitmapSrc->data, l.pBitmapSrc->width, l.pBitmapSrc->height, l.quality, &errMsg);
+    bool writeOk=my_jpeg_write(preTileName, l.pBitmapSrc->data, l.pBitmapSrc->width, l.pBitmapSrc->height, l.optQuality, &errMsg);
     if (!writeOk)
     {
       std::cout << "Error writing debug file: " << errMsg << std::endl;
@@ -663,9 +691,9 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
 
 void SlideConvertor::printPercDone(SlideLevel& l)
 {
-  if (l.outputType == OLYVSLIDE_SCANONLY)
+  if (l.scanBkgd)
   {
-    l.perc=(int)(((double) l.ySrc / (double) l.srcTotalHeight) * 100);
+    l.perc=(int)(((double) round(l.ySrc) / (double) l.srcTotalHeight) * 100);
   }
   else
   {
@@ -690,19 +718,21 @@ void SlideConvertor::printPercDone(SlideLevel& l)
 }
 
 
-int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLevel, bool tiled, bool scanBkgd, bool flushArchive, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2)
+int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLevel, int options, int64_t readWidthL2, int64_t readHeightL2, safeBmp *pBitmapL2)
 {
   std::ostringstream output;
   SlideLevel l;
 
-  l.debugLevel = mDebugLevel;
-  l.maxMemory = mMaxMemory;
-  l.outputType = mOutputType;
-  if (scanBkgd == true)
-  {
-    l.outputType = OLYVSLIDE_SCANONLY;
-  }
-  l.tiled = tiled;
+  memset(&l, 0, sizeof(l));
+  
+  l.optGoogle = mOptGoogle;
+  l.optTif = mOptTif;
+  l.optDebug = mOptDebug;
+  l.optMaxMem = mOptMaxMem;
+  l.optGamma = mOptGamma;
+  l.optUseGamma = mOptUseGamma;
+  l.optLog = mOptLog;
+  l.tiled = (options & LEVEL_TILED) ? true : false;
   l.center = mCenter;
   l.olympusLevel = olympusLevel;
   l.magnifyX=magnification;
@@ -719,8 +749,17 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   l.scaleMethod=Magick::MitchellFilter;
   l.scaleMethodL2=Magick::MitchellFilter;
   #endif
-  l.scanBkgd = scanBkgd;
-  l.fillin = (mBlendTopLevel && scanBkgd==false && l.olympusLevel < 2 && slide->checkLevel(2)) ? true : false;
+  if (options & LEVEL_SCANBKGD)
+  {
+    l.optGoogle = false;
+    l.optTif = false;
+    l.scanBkgd = true;
+  }
+  else
+  {
+    l.scanBkgd = false;
+  }
+  l.fillin = (mOptBlend && l.scanBkgd==false && l.olympusLevel < 2 && slide->checkLevel(2)) ? true : false;
 
   l.srcTotalWidth = slide->getActualWidth(olympusLevel);
   l.srcTotalHeight = slide->getActualHeight(olympusLevel);
@@ -758,7 +797,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   }
   l.xScaleL2=(double) l.srcTotalWidthL2 / (double) l.srcTotalWidth;
   l.yScaleL2=(double) l.srcTotalHeightL2 / (double) l.srcTotalHeight;
-  if (tiled)
+  if (l.tiled)
   {
     l.finalOutputWidth=256;
     l.finalOutputHeight=256;
@@ -766,10 +805,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.finalOutputHeight2=256;
     l.inputTileWidth=256;
     l.inputTileHeight=256;
-    l.grabWidthA=round((double) l.inputTileWidth * l.xScale);
-    l.grabHeightA=round((double) l.inputTileHeight * l.yScale);
-    l.grabWidthB=round((double) l.finalOutputWidth * l.xScale);
-    l.grabHeightB=round((double) l.finalOutputHeight * l.yScale);
+    l.grabWidthA=(double) l.inputTileWidth * l.xScale;
+    l.grabHeightA=(double) l.inputTileHeight * l.yScale;
+    l.grabWidthB=(double) l.finalOutputWidth * l.xScale;
+    l.grabHeightB=(double) l.finalOutputHeight * l.yScale;
 
     l.grabWidthL2=round(256.0 * (double) l.srcTotalWidthL2 / (double) l.destTotalWidth);
     l.grabHeightL2=round(256.0 * (double) l.srcTotalHeightL2 / (double) l.destTotalHeight);
@@ -791,26 +830,26 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   }
   l.totalSubTiles = 1;
   int64_t totalGrabBytes = l.grabWidthB * l.grabHeightB * 3;
-  if (totalGrabBytes > l.maxMemory && l.outputType != OLYVSLIDE_SCANONLY)
+  if (totalGrabBytes > l.optMaxMem && l.scanBkgd==false)
   {
     do
     {
       l.totalSubTiles *= 2;
       totalGrabBytes = ceil((double) l.grabWidthB / (double) l.totalSubTiles) * ceil((double) l.grabHeightB / (double) l.totalSubTiles) * 3;
     }
-    while (totalGrabBytes > l.maxMemory);
-    std::cout << "Using max memory " << (totalGrabBytes / (1024 * 1024)) << "mb for pixel resizer." << std::endl;
-    l.grabWidthA = round(l.grabWidthB / (double) l.totalSubTiles);
-    l.grabHeightA = round(l.grabHeightB / (double) l.totalSubTiles);
+    while (totalGrabBytes > l.optMaxMem);
+    std::cout << "Using max memory " << (totalGrabBytes / (1024 * 1024)) << "mb max width=" << (int64_t) round(l.grabWidthB) << " x height=" << (int64_t) round(l.grabHeightB) << " for pixel resizer." << std::endl;
+    l.grabWidthA = l.grabWidthB / (double) l.totalSubTiles;
+    l.grabHeightA = l.grabHeightB / (double) l.totalSubTiles;
   } 
 
-  if ((scanBkgd || l.readOkL2) && mBlendByRegion==false)
+  if ((l.scanBkgd || l.readOkL2) && mOptRegion==false)
   {
     l.xBlendFactor = l.magnifyX; 
     l.yBlendFactor = l.magnifyY;
     l.xBkgdLimit = 752;
     l.yBkgdLimit = 480;
-    if (scanBkgd)
+    if (l.scanBkgd)
     {
       l.inputTileWidth = 752;
       l.inputTileHeight = 480;
@@ -829,7 +868,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.xBkgdLimit = 0;
     l.yBkgdLimit = 0;
   }
-  if (l.center && l.outputType == OLYVSLIDE_GOOGLE)
+  if (l.center && l.optGoogle)
   {
     calcCenters(l.outLevel, l.xLevelOffset, l.yLevelOffset);
   
@@ -838,7 +877,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.xStartSrc = (double)(-l.xCenter) * l.xScale;
     l.outputLvlTotalWidth = ceil((double) (l.xCenter + l.destTotalWidth) / 256.0) * 256;
 
-    l.yTile = l.yLevelOffset / 256;
+    l.yTileMap = l.yLevelOffset / 256;
     l.yCenter = l.yLevelOffset % 256;
     l.yStartSrc = (double)(-l.yCenter) * l.yScale;
     l.outputLvlTotalHeight = ceil((double) (l.yCenter + l.destTotalHeight) / 256.0) * 256;
@@ -849,13 +888,13 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.xCenter = 0;
     l.xStartSrc = 0.0;
     
-    l.yTile = 0;
+    l.yTileMap = 0;
     l.yCenter = 0;
     l.yStartSrc = 0.0;
     if (l.tiled)
     {
-      l.outputLvlTotalWidth = ceil((double) l.destTotalWidth / 256.0) * 256;
-      l.outputLvlTotalHeight = ceil((double) l.destTotalHeight / 256.0) * 256;
+      l.outputLvlTotalWidth = ceil((double) l.destTotalWidth / l.inputTileWidth) * l.inputTileWidth;
+      l.outputLvlTotalHeight = ceil((double) l.destTotalHeight / l.inputTileHeight) * l.inputTileHeight;
     }
     else
     {
@@ -863,6 +902,16 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       l.outputLvlTotalHeight = l.destTotalHeight2;
     } 
   }
+  if (l.tiled)
+  {
+    l.xEndTile = ceil((double) l.outputLvlTotalWidth / (double) l.inputTileWidth);
+    l.yEndTile = ceil((double) l.outputLvlTotalHeight / (double) l.inputTileHeight);
+  }
+  else
+  {
+    l.xEndTile = 1;
+    l.yEndTile = 1;
+  }  
   if (l.xScaleReverse < 1.0 || l.yScaleReverse < 1.0)
   {
     #ifndef USE_MAGICK
@@ -875,21 +924,21 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   // the ini file specifies it (some ini files do, some don't)
   // Make sure the quality is at minimum the quality specific on the
   // command line
-  l.quality=slide->getQuality(l.olympusLevel);
-  if (l.quality == 0 || l.quality < mQuality)
+  l.optQuality=slide->getQuality(l.olympusLevel);
+  if (l.optQuality == 0 || l.optQuality < mOptQuality)
   {
-    l.quality = mQuality;
+    l.optQuality = mOptQuality;
   }
-  if (l.outputType == OLYVSLIDE_GOOGLE)
+  if (l.optGoogle)
   {
     output << "Google Maps Level=" << l.outLevel << " Olympus Level=" << l.olympusLevel << " Divisor of Base=" << l.magnifyX << std::endl;
-    if (mCreateLog) *logFile << output.str();
+    if (l.optLog) *logFile << output.str();
     std::cout << output.str();
   }
-  else if (l.outputType == OLYVSLIDE_TIF)
+  else if (l.optTif)
   {
     output << "Tiff Level=" << l.outLevel << " Olympus Level=" << l.olympusLevel << " Divisor of Base=" << l.magnifyX << std::endl;
-    if (mCreateLog) *logFile << output.str();
+    if (l.optLog) *logFile << output.str();
     std::cout << output.str();
    
     int totalMag=slide->getMagnification();
@@ -898,7 +947,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       totalMag=40;
     }
     std::ostringstream oss;
-    if (mBaseLevel==olympusLevel || tiled==false)
+    if (mBaseLevel==olympusLevel || l.tiled==false)
     {
       oss << "|AppMag=" << totalMag;
       if (slide->getTotalZLevels() > 1 && mZSteps == 1) 
@@ -911,7 +960,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       }
     }
     std::string strAttributes=oss.str();
-    if (mTif->setAttributes(3, 8, l.destTotalWidth2, l.destTotalHeight2, (l.tiled==true ? l.finalOutputWidth : 0), (l.tiled==true ? l.finalOutputHeight : 0), 1, l.quality)==false || mTif->setDescription(strAttributes, mBaseTotalWidth2, mBaseTotalHeight2)==false)
+    if (mTif->setAttributes(3, 8, l.destTotalWidth2, l.destTotalHeight2, (l.tiled==true ? l.finalOutputWidth : 0), (l.tiled==true ? l.finalOutputHeight : 0), 1, l.optQuality)==false || mTif->setDescription(strAttributes, mBaseTotalWidth2, mBaseTotalHeight2)==false)
     {
       std::string errMsg;
       mTif->getErrMsg(errMsg);
@@ -919,11 +968,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       return 4;
     }
   }
-  else if (l.outputType == OLYVSLIDE_SCANONLY)
+  else if (l.scanBkgd)
   {
     output << "Scanning Olympus Level=" << l.olympusLevel << " for Background Blending Information" << std::endl;
     
-    if (mCreateLog) *logFile << output.str();
+    if (l.optLog) *logFile << output.str();
     std::cout << output.str();
   }
 
@@ -945,7 +994,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     {
       safeBmpAlloc2(&l.bitmap1, l.inputTileWidth, l.inputTileHeight);
     }
-    if ((l.readOkL2 || scanBkgd) && mBlendByRegion==false)
+    if ((l.readOkL2 || l.scanBkgd) && mOptRegion==false)
     {
       l.pBitmap4 = safeBmpAlloc(l.finalOutputWidth2, l.finalOutputHeight2);
       if (mTotalXSections == 0 || mTotalYSections == 0)
@@ -962,7 +1011,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       l.xSubSections=mxSubSections;
       l.ySubSections=mySubSections;
     }
-    if (mCreateLog)
+    if (l.optLog)
     {
       *logFile << " xScale=" << l.xScale << " yScale=" << l.yScale;
       *logFile << " srcTotalWidth=" << l.srcTotalWidth << " srcTotalHeight=" << l.srcTotalHeight;
@@ -981,7 +1030,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
 
     // Keep looping until the current composite pyramid level is read
     // or the resulting output pyramid is done or on error
-    while (round(l.ySrc) < l.srcTotalHeight && l.yDest < l.outputLvlTotalHeight && error==false)
+    l.yOutTile = 0;
+    while (l.yOutTile < l.yEndTile && round(l.ySrc) < l.srcTotalHeight)
     {
       std::ostringstream yRootStream, yRootStreamZip;
       std::string dirPart1, dirPartZip1;
@@ -992,9 +1042,9 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       dirPart1 = yRootStream.str();
       yRootStream << mPathSeparator << outLevel;
       dirPart2 = yRootStream.str();
-      yRootStream << mPathSeparator << l.yTile;
+      yRootStream << mPathSeparator << l.yTileMap;
       yRoot = yRootStream.str();
-      if (l.debugLevel > 1 && l.outputType != OLYVSLIDE_SCANONLY)
+      if (l.optDebug > 1 && l.scanBkgd==false)
       {
         // Create the google maps directory structure up to the the y tile
         if (!my_mkdir(dirPart1) || !my_mkdir(dirPart2) || !my_mkdir(yRoot))
@@ -1008,9 +1058,9 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       dirPartZip1 = yRootStreamZip.str();
       yRootStreamZip << ZipFile::mZipPathSeparator << outLevel;
       dirPartZip2 = yRootStreamZip.str();
-      yRootStreamZip << ZipFile::mZipPathSeparator << l.yTile;
+      yRootStreamZip << ZipFile::mZipPathSeparator << l.yTileMap;
       yRootZip = yRootStreamZip.str();
-      if (l.outputType == OLYVSLIDE_GOOGLE) 
+      if (l.optGoogle && l.scanBkgd==false) 
       {
         // Create the google maps directory structure up to the the y tile
         if (mZip->addDir(dirPartZip1)==-1 || mZip->addDir(dirPartZip2)==-1 || mZip->addDir(yRootZip)==-1)
@@ -1020,18 +1070,31 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
           break;
         }
       }
+      l.ySrc = (l.yOutTile * l.grabHeightB) + l.yStartSrc;
+      l.xSrc = l.xStartSrc;
       l.xDest = 0;
-      l.xTile = l.xStartTile;
-      // Loop until this cx block is complete or on error
-      for (l.xSrc=l.xStartSrc; round(l.xSrc) < l.srcTotalWidth && l.xDest<l.outputLvlTotalWidth && error==false; l.xSrc += l.grabWidthB) 
+      l.xTileMap = l.xStartTile;
+      if (round(l.ySrc) + round(l.grabHeightB) < 1.0f)
+      {
+        std::cerr << "For some reason we have hit this! l.ySrc=" << l.ySrc << " l.yStartSrc=" << l.yStartSrc << " l.grabHeightB=" << l.grabHeightB << std::endl;
+        l.yOutTile++;
+        continue;
+      }
+      for (l.xOutTile=0; l.xOutTile < l.xEndTile && round(l.xSrc) < l.srcTotalWidth && error==false; l.xOutTile++) 
       {
         std::ostringstream tileNameStream, tileNameStreamZip;
         std::string errMsg;
-        if (l.xSrc + l.grabWidthB < 1.0 || l.ySrc + l.grabHeightB < 1.0) continue;
-        tileNameStream << yRoot << mPathSeparator << l.xTile << ".jpg";
-        tileNameStreamZip << yRootZip << ZipFile::mZipPathSeparator << l.xTile << ".jpg";
-        l.tileName = tileNameStream.str();
-
+        std::string fullTilePath;
+        l.xSrc = (l.xOutTile * l.grabWidthB) + l.xStartSrc;
+        if (round(l.xSrc) + round(l.grabWidthB) < 1.0f)
+        {
+          std::cerr << "For some reason we have hit this! l.xSrc=" << l.xSrc << " l.xStartSrc=" << l.xStartSrc << " l.grabWidthB=" << l.grabWidthB << std::endl;
+          continue;
+        }
+        tileNameStream << yRoot << mPathSeparator << l.xTileMap << ".jpg";
+        tileNameStreamZip << yRootZip << ZipFile::mZipPathSeparator << l.xTileMap << ".jpg";
+        fullTilePath = tileNameStream.str();
+        l.pTileName = &fullTilePath;
         l.inputSubTileWidthRead = (int64_t) round((double) l.inputTileWidth / (double) l.totalSubTiles);
         l.inputSubTileHeightRead = (int64_t) round((double) l.inputTileHeight / (double) l.totalSubTiles);
         bool readOkSrc=false;
@@ -1050,16 +1113,20 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         safeBmpClear(&l.sizedBitmap2);
         l.pImgScaled = NULL;
         // this tile needs to be the same with and length as final output width and length
-        for (l.ySubTile=0; l.ySubTile < l.totalSubTiles && l.ySrc < l.srcTotalHeight; l.ySubTile++)
+        l.ySubTile=0;
+        while (l.ySubTile < l.totalSubTiles && round(l.ySrc) < l.srcTotalHeight)
         {
-          l.xSrc=xSrcStart2;
-          for (l.xSubTile=0; l.xSubTile < l.totalSubTiles && l.xSrc < l.srcTotalWidth; l.xSubTile++)
+          l.xSrc = xSrcStart2;
+          l.ySrc = ySrcStart2 + (l.ySubTile * l.grabHeightA);
+          if (round(l.ySrc) + round(l.grabHeightA) < 1.0f) 
           {
-            if (l.xSrc + l.grabWidthA < 1.0 || l.ySrc + l.grabHeightA < 1.0)
-            {
-              l.xSrc += l.grabWidthA;
-              continue;
-            }
+            l.ySubTile++;
+            continue;
+          }
+          for (l.xSubTile=0; l.xSubTile < l.totalSubTiles && round(l.xSrc) < l.srcTotalWidth; l.xSubTile++)
+          {
+            l.xSrc = xSrcStart2 + (l.xSubTile * l.grabWidthA);
+            if (round(l.xSrc) + round(l.grabWidthA) < 1.0f) continue;
             safeBmpClear(&l.subTileBitmap);
             safeBmpClear(&l.safeImgScaled);
             safeBmpClear(&l.sizedBitmap);
@@ -1103,7 +1170,9 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             }
             l.grabWidthRead = round(grabWidthReadDec);
             l.grabHeightRead = round(grabHeightReadDec);
-            slide->allocate(&l.subTileBitmap, olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
+            if (l.grabWidthRead <= 0 || l.grabHeightRead <= 0) continue;
+            bool allocOk = slide->allocate(&l.subTileBitmap, olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
+            if (allocOk == false) continue; 
             l.pBitmapSrc = &l.subTileBitmap;
             safeBmpByteSet(&l.subTileBitmap, l.bkgdColor);
             
@@ -1114,7 +1183,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
               error = true;
               break;
             }
-            if (l.debugLevel > 2)
+            if (l.optDebug > 2)
             {
               *logFile << " slide->read(x=" << l.xSrcRead << " y=" << l.ySrcRead << " grabWidthA=" << l.grabWidthRead << " grabHeightA=" << l.grabHeightRead << " olympusLevel=" << l.olympusLevel << "); " << std::endl;
             }
@@ -1127,11 +1196,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             {
               std::cerr << "Failed to read olympus level " << l.olympusLevel << " jpeg tile @ x=" << l.xSrcRead << " y=" << l.ySrcRead << " width=" << l.grabWidthRead << " height=" << l.grabHeightRead << std::endl;
             }
-            if (l.debugLevel > 2)
+            if (l.optDebug > 2)
             {
               std::cout << "readWidth: " << l.readWidth << " readHeight: " << l.readHeight<< " grabWidth: " << l.grabWidthRead << " grabHeight: " << l.grabHeightRead << std::endl;
             }
-            if (readOkSrc && l.outputType == OLYVSLIDE_SCANONLY)
+            if (readOkSrc && l.scanBkgd)
             {
               scanSrcTileBkgd(l);
             }
@@ -1151,9 +1220,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
               safeBmpFree(&l.subTileBitmap);
             }
             l.xSrc += l.grabWidthA;
-            printPercDone(l);
           }
-          l.ySrc += l.grabHeightA;
+          l.ySubTile++;
+          l.ySrc = ySrcStart2 + (l.ySubTile * l.grabHeightA);
+          printPercDone(l);
         }
         l.xSrc = xSrcStart2;
         l.ySrc = ySrcStart2;
@@ -1162,19 +1232,23 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         safeBmpClear(&l.safeScaledL2Mini);
         safeBmpClear(&l.safeScaledL2Mini2);
         l.pImgScaledL2Mini = NULL;
-        if (readSubTiles > 0 && l.outputType != OLYVSLIDE_SCANONLY) 
+        if (readSubTiles > 0 && l.scanBkgd==false) 
         {
           bool writeOk=false;
           if (l.readOkL2)
           {
             blendL2WithSrc(l);  
           }
-          if (l.outputType == OLYVSLIDE_GOOGLE)
+          if (l.optUseGamma)
+          {
+            processGamma(l);
+          }
+          if (l.optGoogle)
           {
             BYTE* pJpegBytes = NULL;
             unsigned long outSize = 0;
             std::string tileName = tileNameStreamZip.str();
-            bool compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, l.quality, &errMsg, &outSize);
+            bool compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, l.optQuality, &errMsg, &outSize);
             if (compressOk && mZip->addFile(tileName, pJpegBytes, outSize)==ZIP_OK)
             {
               writeOk=true;
@@ -1185,7 +1259,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             }
             my_jpeg_free(&pJpegBytes);
           }
-          else if (l.outputType == OLYVSLIDE_TIF)
+          else if (l.optTif)
           {
             if (l.tiled)
             {
@@ -1199,16 +1273,16 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
           if (writeOk==false)
           {
             std::string errMsg;
-            if (l.outputType == OLYVSLIDE_GOOGLE)
+            if (l.optGoogle)
             {
-              std::cerr << "Failed to write jpeg tile '" << l.tileName << "' reason: " << mZip->getErrorMsg() << std::endl;
+              std::cerr << "Failed to write jpeg tile '" << l.pTileName << "' reason: " << mZip->getErrorMsg() << std::endl;
             }
-            else if (l.outputType == OLYVSLIDE_TIF && tiled)
+            else if (l.optTif && l.tiled)
             {
               mTif->getErrMsg(errMsg);
               std::cerr << "Failed to write tif tile x=" << l.xDest << " y=" << l.yDest << " reason: " << errMsg << std::endl;
             }
-            else if (l.outputType == OLYVSLIDE_TIF && !tiled)
+            else if (l.optTif && !l.tiled)
             {
               mTif->getErrMsg(errMsg);
               std::cerr << "Failed to write tif image at tif level=" << l.outLevel << " reason: " << errMsg << std::endl;
@@ -1218,14 +1292,15 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         }
         tileCleanup(l);
         l.xDest += l.finalOutputWidth2;
-        l.xTile++;
+        l.xTileMap++;
       }
       l.yDest += l.finalOutputHeight2;
-      l.ySrc += l.grabHeightB;
-      l.yTile++;
+      l.yTileMap++;
+      l.yOutTile++;
+      l.ySrc = (l.yOutTile * l.grabHeightB) + l.yStartSrc;
       printPercDone(l);
     }
-    if (l.outputType == OLYVSLIDE_TIF)
+    if (l.optTif)
     {
       bool success = mTif->writeDirectory();
       if (success == false)
@@ -1234,7 +1309,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         std::string errMsg;
         mTif->getErrMsg(errMsg);
         std::cerr << tifDirErrorMsg << errMsg << std::endl;
-        if (mCreateLog) *logFile << tifDirErrorMsg << errMsg << std::endl;
+        if (l.optLog) *logFile << tifDirErrorMsg << errMsg << std::endl;
         error = true;
       }
     }
@@ -1243,7 +1318,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     const char *msg = "Fatal Error: Failed to get memory. Cannot continue!";
     std::cout << msg << std::endl;
-    if (mCreateLog) *logFile << msg << std::endl;
+    if (l.optLog) *logFile << msg << std::endl;
     error = true;
     exit(1);
   }
@@ -1309,14 +1384,14 @@ int SlideConvertor::convert2Tif()
       break;
     case 1:
       std::cout << "Slide missing level 2 pyramid, continuing without one." << std::endl;
-      mBlendTopLevel = false;
+      mOptBlend = false;
       break;
     case 2:
       std::cout << "Fatal Error: Cannot allocate memory for Olympus level 2 pyramid." << std::endl;
       return 1;
     case 3:
       std::cout << "Failed reading level 2 pyramid, continuing without one." << std::endl;
-      mBlendTopLevel = false;
+      mOptBlend = false;
       break;
   }
   int maxDivisor=128;
@@ -1329,12 +1404,12 @@ int SlideConvertor::convert2Tif()
   //****************************************************************
   int divisor = 1;
   int step = 1;
-  
-  error=outputLevel(mBaseLevel, divisor, step, true, true, false, readWidthL2, readHeightL2, pFullL2Bitmap);
+  int options = LEVEL_SCANBKGD | LEVEL_TILED; 
+  error=outputLevel(mBaseLevel, divisor, step, options, readWidthL2, readHeightL2, pFullL2Bitmap);
 
   while (divisor != maxDivisor && error==0)
   {
-    bool tiled = true;
+    int tiled = 1;
     int olympusLevel = 1;
     switch (step)
     {
@@ -1344,7 +1419,7 @@ int SlideConvertor::convert2Tif()
         break;
       case 2:
         divisor = maxDivisor * 2;
-        tiled = false;
+        tiled = 0;
         break;
       case 3:
         divisor = 4;
@@ -1366,7 +1441,8 @@ int SlideConvertor::convert2Tif()
         divisor = maxDivisor;
         break;
     }
-    error=outputLevel(olympusLevel, divisor, step, tiled, false, false, readWidthL2, readHeightL2, pFullL2Bitmap);
+    options = LEVEL_TILED * tiled;
+    error=outputLevel(olympusLevel, divisor, step, options, readWidthL2, readHeightL2, pFullL2Bitmap);
     step++;
   }
   if (error == 0 && step > 1)
@@ -1394,14 +1470,14 @@ int SlideConvertor::convert2Gmap()
       break;
     case 1:
       std::cout << "Slide missing level 2 pyramid, continuing without one." << std::endl;
-      mBlendTopLevel = false;
+      mOptBlend = false;
       break;
     case 2:
       std::cout << "Fatal Error: Cannot allocate memory for Olympus level 2 pyramid." << std::endl;
       return 1;
     case 3:
       std::cout << "Failed reading level 2 pyramid, continuing without one." << std::endl;
-      mBlendTopLevel = false;
+      mOptBlend = false;
       break;
   }
   //****************************************************************
@@ -1410,7 +1486,7 @@ int SlideConvertor::convert2Gmap()
   int64_t divisor = 1 << mTopOutLevel;
   int outLevel = 0;
 
-  error=outputLevel(mBaseLevel, 1, 0, true, true, false, readWidthL2, readHeightL2, pFullL2Bitmap);
+  error=outputLevel(mBaseLevel, 1, 0, LEVEL_TILED | LEVEL_SCANBKGD, readWidthL2, readHeightL2, pFullL2Bitmap);
   while (outLevel <= mTopOutLevel && error==0)
   {
     int olympusLevel;
@@ -1422,8 +1498,7 @@ int SlideConvertor::convert2Gmap()
     {
       olympusLevel = 1;
     }
-    bool flushArchive = (outLevel == mTopOutLevel ? true : false);
-    error=outputLevel(olympusLevel, divisor, outLevel, true, false, flushArchive, readWidthL2, readHeightL2, pFullL2Bitmap);
+    error=outputLevel(olympusLevel, divisor, outLevel, LEVEL_TILED, readWidthL2, readHeightL2, pFullL2Bitmap);
     divisor /= 2;
     outLevel++;
   }
@@ -1435,27 +1510,29 @@ int SlideConvertor::convert2Gmap()
 }
 
 
-int SlideConvertor::open(std::string inputFile, std::string outputFile, bool useOpenCV, bool blendTopLevel, bool blendByRegion, bool markOutline, bool includeZStack, bool createLog, int quality, int64_t bestXOffset, int64_t bestYOffset, int maxMemory, int outputType, int debugLevel)
+int SlideConvertor::open(std::string inputFile, std::string outputFile, int options, int64_t optXOffset, int64_t optYOffset)
 {
   mValidObject = false;
-  mDebugLevel = debugLevel;
   closeRelated();
   logFile = new std::ofstream;
-  mCreateLog = createLog;
-  if (mCreateLog)
+  mOptTif = options & CONV_TIF;
+  mOptGoogle = options & CONV_GOOGLE;
+  mOptLog = options & CONV_LOG;
+  mOptBlend = options & CONV_BLEND;
+  mOptRegion = options & CONV_REGION;
+  mOptZStack = options & CONV_ZSTACK;
+  if (mOptLog)
   {
     logFile->open("olyvslideconv.log");
   }
   slide = new CompositeSlide();
   errMsg="";
-  if (slide->open(inputFile.c_str(), useOpenCV, markOutline, debugLevel, bestXOffset, bestYOffset, &mpImageL2)==false)
+  if (slide->open(inputFile.c_str(), options, mOptDebug, optXOffset, optYOffset, &mpImageL2)==false)
   {
     return 1;
   }
-  mMaxMemory = maxMemory;
   mOutputFile = outputFile;
   mOutputDir = outputFile;
-  mOutputType = outputType;
   std::size_t lastSlashIndex = mOutputFile.find_last_of("\\/");
   if (lastSlashIndex != std::string::npos)
   {
@@ -1479,7 +1556,7 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
     mFileNameOnly.erase(dot_index);
   }
 
-  if (mOutputType == OLYVSLIDE_TIF)
+  if (mOptTif)
   {
     mOutputDir.append("_debug_jpgs");
     mCenter = false;
@@ -1491,10 +1568,10 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
       return 2;
     }
   }
-  else if (mOutputType == OLYVSLIDE_GOOGLE)
+  else if (mOptGoogle)
   {
     mZip = new ZipFile();
-    if (mZip->openArchive(outputFile.c_str(), mMaxZipBufferBytes, APPEND_STATUS_CREATE) != 0)
+    if (mZip->openArchive(outputFile.c_str(), APPEND_STATUS_CREATE) != 0)
     {
       std::cerr << "Failed to create zip file '" << outputFile << "'. Reason: " << mZip->getErrorMsg() << std::endl;
       return 2;
@@ -1519,10 +1596,6 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
   }
   mStep=0;
   mLastZLevel=-1;
-  mBlendTopLevel = blendTopLevel;
-  mBlendByRegion = blendByRegion;
-  mIncludeZStack = includeZStack;
-  mQuality = quality;
   mMaxSide = 0;
   mTopOutLevel = 0;
   
@@ -1530,7 +1603,7 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, bool use
   if (mBaseTotalWidth > 0 && mBaseTotalHeight > 0)
   {
     mValidObject = true;
-    if (mOutputType == OLYVSLIDE_GOOGLE)
+    if (mOptGoogle)
     {
       for (mTopOutLevel = 0; mTopOutLevel < 20; mTopOutLevel++)
       {
@@ -1604,55 +1677,6 @@ void SlideConvertor::closeRelated()
 }
 
 
-bool getBoolOpt(const char *optarg, bool& invalidOpt)
-{
-  const char *available[14] = { 
-    "1", 
-    "true", "TRUE", 
-    "enable", "ENABLE", 
-    "on", "ON", 
-    "0", 
-    "false", "FALSE", 
-    "disable", "DISABLE", 
-    "off", "OFF" 
-  };
-  if (optarg == NULL) 
-  {
-    invalidOpt = true;
-    return false;
-  }
-  std::string optarg2 = optarg;
-  for (int i = 0; i < 14; i++)
-  {
-    if (optarg2.find(available[i]) != std::string::npos)
-    {
-      if (i < 7) return true;
-      else return false;
-    }
-  }
-  invalidOpt = true;
-  return false;
-}
-
-
-int getIntOpt(const char *optarg, bool& invalidOpt)
-{
-  unsigned int i=0;
-  if (optarg==NULL)
-  {
-    invalidOpt = true;
-    return 0;
-  }
-  std::string optarg2 = optarg;
-  while (i < optarg2.length() && (optarg2[i]==' ' || optarg2[i]==':' || optarg2[i]=='=' || optarg2[i]=='\t')) i++;
-  optarg2 = optarg2.substr(i);
-  if (optarg2.length() > 0 && isdigit(optarg2[0]))
-  {
-    return atoi(optarg2.c_str());
-  }
-  invalidOpt = true;
-  return 0;
-}
 
 
 int main(int argc, char** argv)
@@ -1660,24 +1684,88 @@ int main(int argc, char** argv)
   SlideConvertor slideConv;
   int error=0;
   std::string infile, outfile;
-  int64_t bestXOffset = -1, bestYOffset = -1;
-  bool xOffsetSet = false, yOffsetSet = false;
-  bool useOpenCV = false;
-  bool blendTopLevel = true;
-  bool blendByRegion = false;
-  bool doBorderHighlight = false;
-  bool includeZStack = false;
-  bool createLog = false;
-  static int outputType = 0;
-  int quality = 85;
-  int debugLevel = 0;
-  int maxResizeMemory = MAX_RESIZE_MEMORY;
-  int maxJpgCacheMemory = MAX_JPG_CACHE_MEMORY;
-  char syntax[] = "syntax: olyvslideconv -b=[on,off] -l=[on,off] -o=[on,off] -d=[0-3] -h=[on,off] -r=[on,off] -x=[bestXOffset] -y=[bestYOffset] -o=[on,off] -z=[on,off] [--tiff, --google] <inputfolder> <outputfile> \nFlags:\t--tiff output to tif file.\n\t--google output to google maps format.\n\t-b blend the top level with the middle level. Default on.\n\t-l log general information about the slide.\n\t-d Debug mode, output debugging info and files. Default 0. The higher the more debugging output. Sets logging on as well if greater than 1.\n\t-m Specify max memory size of pixel rescaler/resizer in megabytes, default 512mb.\n\t-j Specify max jpg cache size in megabytes, default 256mb.\n\t-r Blend the top level with the middle level by region, not by empty background, default off.\n\t-h highlight visible areas with a black border. Default off.\n\t-q Set minimal jpeg quality percentage. Default 85 for level 0, 90 for level 1, and 95 for level 2 and above.\n\t-o Use opencv (computer vision) to calculate the offset for the upper and higher level (almost never required).\n\t-x and -y Optional: set best X, Y offset of image if upper and lower pyramid levels are not aligned.\n\t-z Process Z-stack if the image has one. Default off.\n";
-
+  
+  int optGoogle = getBoolOpt(SLIDE_DEFAULT_GOOGLE);
+  int optTif = getBoolOpt(SLIDE_DEFAULT_TIF);
+  int optBlend = getBoolOpt(SLIDE_DEFAULT_BLEND);
+  int optHighlight = getBoolOpt(SLIDE_DEFAULT_HIGHLIGHT);
+  int optLog = getBoolOpt(SLIDE_DEFAULT_LOG); 
+  int optOpenCVAlign = getBoolOpt(SLIDE_DEFAULT_OPENCV_ALIGN);
+  int optRegion = getBoolOpt(SLIDE_DEFAULT_REGION);
+  int optZStack = getBoolOpt(SLIDE_DEFAULT_ZSTACK);
+  int optQuality = SLIDE_DEFAULT_QUALITY;
+  int optDebug = SLIDE_DEFAULT_DEBUG;
+  int64_t optMaxJpegCache = SLIDE_DEFAULT_MAX_JPEG_CACHE;
+  int64_t optMaxMem = SLIDE_DEFAULT_MAX_MEM; 
+  double optGamma = 1.0f;
+  int optUseGamma = 0;
+  int optXOffset = 0;
+  int optYOffset = 0;
+  int optUseXOffset = 0;
+  int optUseYOffset = 0;
+  int allOptions = 0;
+  
+  const char fullSyntax[] =
+"Usage: olyvslideconv [OPTION] <inputfolder> <outputfile>\n"
+"Main Output Flags:\n"
+"  -g, --google               Output to google maps format zipped. Default " 
+SLIDE_DEFAULT_GOOGLE ".\n"
+"  -t, --tif                  Output to tif file instread. Default " 
+SLIDE_DEFAULT_TIF ".\n\n"
+"Other Optional Flags:\n"
+"  -a, --gamma                Alter gamma. Gamma less than one is darker, \n"
+"                             greater than one is brighter. 1.5 is 50% percent\n"
+"                             brighter 0.5 is 50% darker. Default no extra\n"
+"                             gamma processing is done.\n"
+"  -b, --blend                Blend the top level with the middle level. \n"
+"                             Default " 
+SLIDE_DEFAULT_BLEND ".\n"
+"  -d, --debug=x              Debug mode, output debugging info and files. The\n"
+"                             higher the more debugging output. Sets logging\n"
+"                             on as well if greater than 1. Default " 
+xstringfy(SLIDE_DEFAULT_DEBUG) ".\n"
+"  -h, --highlight            Highlight visible lower areas with a black\n"
+"                             border. Default " 
+SLIDE_DEFAULT_HIGHLIGHT ".\n"
+"  -j, --max-jpeg-cache=x     Specify max jpeg cache size in megabytes.Don't\n"
+"                             specify this unless you run out of memory or\n"
+"                             looking to decrease the time to output.\n"
+"                             Default " 
+xstringfy(SLIDE_DEFAULT_MAX_JPEG_CACHE) "mb.\n"
+"  -l, --log                  Log general information about the slide. \n"
+"                             Default " 
+SLIDE_DEFAULT_LOG ".\n"
+"  -m, --max-mem=x            Specify max memory size of pixel rescaler or\n"
+"                             resizer in megabytes. Don't specify this unless\n"
+"                             you run out of memory or want to increase\n"
+"                             performance. Default " 
+xstringfy(SLIDE_DEFAULT_MAX_MEM) "mb.\n"
+"  -o, --opencv-align         Use opencv (computer vision) to calculate the \n"
+"                             upper alignment offset for the upper and lower\n"
+"                             levels (almost never required). Default " 
+SLIDE_DEFAULT_OPENCV_ALIGN ".\n"
+"  -q, --quality=x            Set minimal jpeg quality percentage. Default " 
+xstringfy(SLIDE_DEFAULT_QUALITY) "%.\n"
+"  -r, --region               Blend the top level with the middle level by\n"
+"                             region, not by empty (completely white) pixel\n"
+"                             background, default " 
+SLIDE_DEFAULT_REGION ".\n"
+"  -x, --xoffset=x            Manually set X alignment offset of top pyramid\n"
+"                             level with the bottom. Use this if the default\n"
+"                             calculation or opencv computer vision method\n"
+"                             does not align the top and bottom levels\n"
+"                             properly.\n"
+"  -y, --yoffset=y            Manually set Y alignment offset of top pyramid\n"
+"                             level with the bottom. Use this if the default\n"
+"                             calculation or opencv computer vision method\n"
+"                             does not align the top and bottom levels\n"
+"                             properly.\n"
+"  -z, --zstack               Process Z-stack if the image has one.\n"
+"                             Experimental and only works for tif files.\n"
+"                             Default " SLIDE_DEFAULT_ZSTACK ".\n\n";
   if (argc < 3)
   {
-    std::cerr << syntax;
+    std::cerr << fullSyntax;
     return 1;
   }
   int opt;
@@ -1686,67 +1774,83 @@ int main(int argc, char** argv)
   char emptyString[] = "";
   static struct option longOptions[] =
     {
-      {"google",            no_argument,        &outputType,  OLYVSLIDE_GOOGLE},
-      {"tiff",              no_argument,        &outputType,  OLYVSLIDE_TIF},
-      {"blend",             required_argument,  0,             'b'},
+      // Main output arguments
+      {"google",            no_argument,        0,             'g'},
+      {"tiff",              no_argument,        0,             't'},
+      
+      // Optional output arguments
+      {"gamma",             required_argument,  0,             'a'},
+      {"blend",             no_argument,        0,             'b'},
       {"debug",             required_argument,  0,             'd'},
-      {"log",               required_argument,  0,             'l'},
-      {"highlight",         required_argument,  0,             'h'},
-      {"opencv",            required_argument,  0,             'o'},
-      {"region",            required_argument,  0,             'r'},
+      {"highlight",         no_argument,        0,             'h'},
+      {"max-jpeg-cache",    required_argument,  0,             'j'},
+      {"log",               no_argument,        0,             'l'},
+      {"max-mem",           required_argument,  0,             'm'},   
+      {"opencv-align",      no_argument,        0,             'o'},
       {"quality",           required_argument,  0,             'q'},
+      {"region",            no_argument,        0,             'r'},
       {"xoffset",           required_argument,  0,             'x'},
       {"yoffset",           required_argument,  0,             'y'},
-      {"zstack",            required_argument,  0,             'z'},
-      {"max-resize-memory", required_argument,  0,             'm'},   
-      {"max-jpg-cache",     required_argument,  0,             'j'},
+      {"zstack",            no_argument,        0,             'z'},
       {0,                   0,                  0,             0 }
     };
   
-  while((opt = getopt_long(argc, argv, "b:d:h:r:q:x:y:z:", longOptions, &optIndex)) != -1)
+  while((opt = getopt_long(argc, argv, "gta:bd:hj:lm:oq:rx:y:z", longOptions, &optIndex)) != -1)
   {
     if (optarg == NULL) optarg = emptyString;
     switch (opt)
     {
+      case 'a':
+        optGamma = getDoubleOpt(optarg, invalidOpt);
+        optUseGamma = 1;
+        break;
       case 'b':
-        blendTopLevel = getBoolOpt(optarg, invalidOpt);
+        optBlend = getBoolOpt(optarg, invalidOpt);
         break;
       case 'd':
-        debugLevel = getIntOpt(optarg, invalidOpt);
+        optDebug = getIntOpt(optarg, invalidOpt);
+        break;
+      case 'g':
+        optGoogle = getBoolOpt(optarg, invalidOpt);
+        if (optGoogle) optTif=0;
         break;
       case 'h':
-        doBorderHighlight = getBoolOpt(optarg, invalidOpt);
+        optHighlight = getBoolOpt(optarg, invalidOpt);
+        break;
+      case 'j':
+        optMaxJpegCache = getIntOpt(optarg, invalidOpt);
         break;
       case 'l':
-        createLog = getBoolOpt(optarg, invalidOpt);
+        optLog = getBoolOpt(optarg, invalidOpt);
         break;
-      case 'r':
-        blendByRegion = getBoolOpt(optarg, invalidOpt);
-        break;
-      case 'q':
-        quality = getIntOpt(optarg, invalidOpt);
+      case 'm':
+        optMaxMem = getIntOpt(optarg, invalidOpt);
         break;
       case 'o':
         #ifndef USE_MAGICK
-        useOpenCV = getBoolOpt(optarg, invalidOpt);
+        optOpenCVAlign = getBoolOpt(optarg, invalidOpt);
         #endif
         break;
-      case 'm':
-        maxResizeMemory = getIntOpt(optarg, invalidOpt);
+      case 'q':
+        optQuality = getIntOpt(optarg, invalidOpt);
         break;
-      case 'j':
-        maxJpgCacheMemory = getIntOpt(optarg, invalidOpt);
+      case 'r':
+        optBlend = getBoolOpt(optarg, invalidOpt);
+        break;
+      case 't':
+        optTif = getBoolOpt(optarg, invalidOpt);
+        if (optTif) optGoogle=0;
         break;
       case 'x':
-        bestXOffset = getIntOpt(optarg, invalidOpt);
-        xOffsetSet = true;
+        optXOffset = getIntOpt(optarg, invalidOpt);
+        optUseXOffset = 1;
         break;
       case 'y':
-        bestYOffset = getIntOpt(optarg, invalidOpt);
-        yOffsetSet = true;
+        optYOffset = getIntOpt(optarg, invalidOpt);
+        optUseYOffset = 1;
         break;
       case 'z':
-        includeZStack = getBoolOpt(optarg, invalidOpt);
+        optZStack = getBoolOpt(optarg, invalidOpt);
         break;
       case '?':
         if (infile.length() == 0)
@@ -1765,7 +1869,7 @@ int main(int argc, char** argv)
     }
     if (invalidOpt)
     {
-      std::cerr << syntax;
+      std::cerr << fullSyntax;
       return 1;
     } 
   }
@@ -1780,89 +1884,117 @@ int main(int argc, char** argv)
       outfile=argv[optind];
     }
   }
-  if (debugLevel > 1) createLog = true;
+  if (optDebug > 1) optLog = 1;
   
   if (infile.length() == 0 || outfile.length() == 0)
   {
-    std::cerr << syntax;
+    std::cerr << fullSyntax;
     return 1;
   }
-  if (outputType==0)
+  allOptions = (optOpenCVAlign * CONV_OPENCV_ALIGN) | 
+            (optBlend * CONV_BLEND) |
+            (optRegion * CONV_REGION) |
+            (optHighlight * CONV_HIGHLIGHT) |
+            (optZStack * CONV_ZSTACK) |
+            (optLog * CONV_LOG) |
+            (optUseXOffset * CONV_CUSTOM_XOFFSET) |
+            (optUseYOffset * CONV_CUSTOM_YOFFSET) |
+            (optUseGamma * CONV_CUSTOM_GAMMA) |
+            (optGoogle * CONV_GOOGLE) |
+            (optTif * CONV_TIF);
+
+  if ((allOptions & (CONV_TIF | CONV_GOOGLE))==0)
   {
-    std::cerr << "No output format specified. Please use --tiff or --google to specify tiff file or google maps zip output." << std::endl;
-    std::cerr << syntax;
+    std::cerr << "No output format specified. Please use -g or --google for google maps output or -t or --tiff for tif output." << std::endl;
     return 1;
   }
-  if (maxResizeMemory < 32)
+  if ((allOptions & CONV_TIF) && (allOptions & CONV_GOOGLE))
   {
-    std::cerr << "Max resize memory must be a size greater than or equal to 32mb." << std::endl;
+    std::cerr << "Please specify either -g or --google for google maps output or -t or --tiff for tif output." << std::endl;
     return 1;
   }
-  if (maxJpgCacheMemory == 0)
+  if (optMaxMem < 32)
   {
-    maxJpgCacheMemory = 1;
+    std::cerr << "Max resize memory must be a size greater than or equal to 32 megabytes." << std::endl;
+    return 1;
+  }
+  if (optMaxJpegCache == 0)
+  {
+    optMaxJpegCache = 1;
   }
 
-  if (debugLevel > 0)
+  if (optDebug > 0)
   {
-    if (outputType==OLYVSLIDE_GOOGLE)
+    if (allOptions & CONV_GOOGLE)
     {
-      std::cout << "Output format: Zipped Google Maps" << std::endl;
+      std::cout << "Output format: Google Maps Zipped" << std::endl;
     }
-    else if (outputType==OLYVSLIDE_TIF)
+    if (allOptions & CONV_TIF)
     {
       std::cout << "Output format: TIFF/SVS" << std::endl;
     }
-    std::cout << "Set logging: " << bool2txt(createLog) << std::endl;
-    std::cout << "Set debug level: " << debugLevel << std::endl;
-    std::cout << "Set minimum quality: " << quality << std::endl;
-    std::cout << "Use OpenCV/computer vision: " << bool2txt(useOpenCV) << std::endl;
-    std::cout << "Set blend top level: " << bool2txt(blendTopLevel) << std::endl;
-    std::cout << "Set border highlight: " << bool2txt(doBorderHighlight) << std::endl;
-    std::cout << "Set blend by region: " << bool2txt(blendByRegion) << std::endl;
-    if (xOffsetSet) 
+    std::cout << "Set logging: " << boolInt2Txt(allOptions & CONV_LOG) << std::endl;
+    std::cout << "Set debug level: " << optDebug << std::endl;
+    std::cout << "Set minimum quality: " << optQuality << std::endl;
+    std::cout << "Use OpenCV/computer vision for XY alignment: " << boolInt2Txt(allOptions & CONV_OPENCV_ALIGN) << std::endl;
+    std::cout << "Set border highlight: " << boolInt2Txt(allOptions & CONV_HIGHLIGHT) << std::endl;
+    std::cout << "Set blend levels: " << boolInt2Txt(allOptions & CONV_BLEND) << std::endl;
+    std::cout << "Set blend by region: " << boolInt2Txt(allOptions & CONV_REGION) << std::endl;
+    if (optUseGamma)
     {
-      std::cout << "Set bestXOffset: " << bestXOffset << std::endl;
+      std::cout << "Set gamma: " << optGamma << std::endl;
     }
     else
     {
-      std::cout << "Set bestXOffset: default" << std::endl;
+      std::cout << "Set gamma: default" << std::endl;
     }
-    if (yOffsetSet)
+    if (optUseXOffset) 
     {
-      std::cout << "Set bestYOffset: " << bestYOffset << std::endl;
+      std::cout << "Set option X offset: " << optXOffset << std::endl;
     }
     else
     {
-      std::cout << "Set bestYOffset: default" << std::endl;
+      std::cout << "Set option X offset: default" << std::endl;
     }
-    std::cout << "Set maximum resize memory: " << maxResizeMemory << "mb " << std::endl;
-    std::cout << "Set maximum jpg cache memory: " << maxJpgCacheMemory << "mb " << std::endl;
+    if (optUseYOffset)
+    {
+      std::cout << "Set option Y offset: " << optYOffset << std::endl;
+    }
+    else
+    {
+      std::cout << "Set option Y offset: default" << std::endl;
+    }
+    std::cout << "Set maximum resize/scale memory: " << optMaxMem << "mb " << std::endl;
+    std::cout << "Set maximum jpeg cache memory: " << optMaxJpegCache << "mb " << std::endl;
   }
 
-  maxResizeMemory *= 1024 * 1024;
-  jpgCache.setMaxOpen(maxJpgCacheMemory);
+  jpgCache.setMaxOpen(optMaxJpegCache);
 
   #ifdef USE_MAGICK
   #if defined(__MINGW32__) || defined(__MINGW64__)
-  quickEnv("MAGICK_CODER_MODULE_PATH", getMagickCoreCoderPath(), debugLevel);
-  quickEnv("MAGICK_CODER_FILTER_PATH", getMagickCoreFilterPath(), debugLevel);
+  quickEnv("MAGICK_CODER_MODULE_PATH", getMagickCoreCoderPath(), optDebug);
+  quickEnv("MAGICK_CODER_FILTER_PATH", getMagickCoreFilterPath(), optDebug);
   #endif
-  quickEnv("MAGICK_MAP_LIMIT", MAGICK_MAP_LIMIT, debugLevel);
-  quickEnv("MAGICK_MEMORY_LIMIT", MAGICK_MEMORY_LIMIT, debugLevel);
-  quickEnv("MAGICK_DISK_LIMIT", MAGICK_DISK_LIMIT, debugLevel);
-  quickEnv("MAGICK_AREA_LIMIT", MAGICK_AREA_LIMIT, debugLevel);
+  quickEnv("MAGICK_MAP_LIMIT", MAGICK_MAP_LIMIT, optDebug);
+  quickEnv("MAGICK_MEMORY_LIMIT", MAGICK_MEMORY_LIMIT, optDebug);
+  quickEnv("MAGICK_DISK_LIMIT", MAGICK_DISK_LIMIT, optDebug);
+  quickEnv("MAGICK_AREA_LIMIT", MAGICK_AREA_LIMIT, optDebug);
   Magick::MagickWandGenesis();
   #endif
  
-  error=slideConv.open(infile.c_str(), outfile.c_str(), useOpenCV, blendTopLevel, blendByRegion, doBorderHighlight, includeZStack, createLog, quality, bestXOffset, bestYOffset, maxResizeMemory, outputType, debugLevel);
+  slideConv.setDebugLevel(optDebug);
+  error=slideConv.open(infile.c_str(), outfile.c_str(), allOptions, optXOffset, optYOffset);
+  slideConv.setGamma(allOptions & CONV_CUSTOM_GAMMA, optGamma);
+  slideConv.setQuality(optQuality);
+  slideConv.setMaxMem(optMaxMem * 1024 * 1024);
+
   if (error==0)
   {
-    if (outputType == OLYVSLIDE_TIF)
+    if (allOptions & CONV_TIF)
     {
       error = slideConv.convert2Tif();
     }
-    else if (outputType == OLYVSLIDE_GOOGLE)
+    else if (allOptions & CONV_GOOGLE)
     {
       error = slideConv.convert2Gmap();
     }

@@ -19,14 +19,18 @@ bool CompositeSlide::read(BYTE *pBmp, int level, int direction, int zLevel, int6
   int64_t actualHeight = mConf[level]->mtotalHeight;
   if (x>actualWidth || y>actualHeight)
   {
-    std::cerr << "x or y out of bounds: x=" << x << " y=" << y;
-    return false;
+    std::cerr << "Warning: in CompositeSlide::read: x or y out of bounds: x=" << x << " y=" << y << std::endl;
+    return true;
   }
   if (width <= 0 || height <= 0)
   {
-    std::cerr << "width or height out of bounds: width=" << width << " height=" << height;
-    return false;
+    std::cerr << "Warning: in CompositeSlide::read: width or height out of bounds: width=" << width << " height=" << height << std::endl;
+    return true;
   } 
+  if (x+width < 1 || y+width < 1)
+  {
+    return true;
+  }
   int samplesPerPixel = 3;
   if (setGrayScale || mGrayScale)
   {
@@ -128,7 +132,7 @@ bool CompositeSlide::read(BYTE *pBmp, int level, int direction, int zLevel, int6
           }
         }
         totalTilesRead++;
-        if (level==2 && mDoBorderHighlight)
+        if (level==2 && mOptBorder)
         {
           drawBorder(pBmp, samplesPerPixel, x, y, maxWidth, maxHeight, level); 
         }
@@ -183,13 +187,10 @@ bool CompositeSlide::allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, in
   if (x+width>actualWidth)
   {
     maxWidth=actualWidth-x;
-//    maxWidth=actualWidth;
-
   }
   if (y+height>actualHeight)
   {
     maxHeight=actualHeight-y;
-//    maxHeight=actualHeight;
   }
  
   int64_t bmpSize=maxWidth*maxHeight*samplesPerPixel;

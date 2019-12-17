@@ -6,11 +6,10 @@
 
 static uint32_t unix2dostime(time_t *time);
 
-int ZipFile::openArchive(std::string filename, int64_t maxBytes, int append)
+int ZipFile::openArchive(std::string filename, int append)
 {
   int status = 0;
   mOutputFile = filename;
-  mMaxBytes = maxBytes;
   mDirNames.clear();
   mZipArchive = zipOpen64(mOutputFile.c_str(), append);
   if (mZipArchive == NULL)
