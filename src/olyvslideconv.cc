@@ -26,6 +26,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <cctype>
 #include <cassert>
 #include <sys/stat.h>
+
+#if defined(_WIN32) || defined(_WIN64)
+#include "console-mswin.h"
+#include "getopt-mswin.h"
+#else
+#include "console-unix.h"
+#include <unistd.h>
+#include <getopt.h>
+#endif
 #include "olyvslideconv.h"
 
 std::string bool2Txt(bool cond)

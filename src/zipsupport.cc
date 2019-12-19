@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cerrno>
+#include <ctime>
 #include <cstring>
 
 static uint32_t unix2dostime(time_t *time);

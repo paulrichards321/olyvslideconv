@@ -15,30 +15,21 @@
 #include "composite.h"
 #include "zipsupport.h"
 
-#if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) || defined(__MINGW32__) || defined(__MINGW64__)
-#include "console-mswin.h"
-#include "getopt-mswin.h"
-#else
-#include "console-unix.h"
-#include <unistd.h>
-#include <getopt.h>
-#endif
-
 #define SLIDE_OPTION_ON  "ON"
 #define SLIDE_OPTION_OFF "OFF"
 
+#define SLIDE_DEFAULT_DEBUG          0
 #define SLIDE_DEFAULT_GOOGLE         SLIDE_OPTION_ON
 #define SLIDE_DEFAULT_TIF            SLIDE_OPTION_OFF
 #define SLIDE_DEFAULT_BLEND          SLIDE_OPTION_ON
-#define SLIDE_DEFAULT_DEBUG          0
 #define SLIDE_DEFAULT_HIGHLIGHT      SLIDE_OPTION_OFF
-#define SLIDE_DEFAULT_MAX_JPEG_CACHE 256
 #define SLIDE_DEFAULT_LOG            SLIDE_OPTION_OFF 
-#define SLIDE_DEFAULT_MAX_MEM        512 
 #define SLIDE_DEFAULT_OPENCV_ALIGN   SLIDE_OPTION_OFF
-#define SLIDE_DEFAULT_QUALITY        85
 #define SLIDE_DEFAULT_REGION         SLIDE_OPTION_OFF
 #define SLIDE_DEFAULT_ZSTACK         SLIDE_OPTION_OFF
+#define SLIDE_DEFAULT_MAX_MEM        256 
+#define SLIDE_DEFAULT_MAX_JPEG_CACHE 256
+#define SLIDE_DEFAULT_QUALITY        85
  
 #define CONV_OPENCV_ALIGN     1
 #define CONV_BLEND            (1 << 1)

@@ -1,7 +1,8 @@
 #ifndef __ZIP_SUPPORT_H
 #define __ZIP_SUPPORT_H
 #include <cstdint>
-#include <minizip/zip.h>
+#include <mz.h>
+#include <mz_compat.h>
 #include <vector>
 #include <string>
 
