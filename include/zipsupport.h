@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <mz.h>
 #include <mz_compat.h>
+#include <mz_os.h>
 #include <vector>
 #include <string>
 

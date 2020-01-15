@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 project( olyvslideconv LANGUAGES C CXX )
 
+include(CheckStructHasMember)
+
 option(USE_MAGICK "Use ImageMagick instead of OpenCV for processing." OFF)
 option(USE_OPENCV "Use OpenCV for image processing instead of ImageMagick." ON)
 
@@ -70,11 +72,14 @@ else()
 endif()
 
 if (PKG_CONFIG_FOUND)
-	pkg_check_modules(MINIZIP minizip)
+  pkg_check_modules(MINIZIP minizip2)
+  if (NOT MINIZIP_LIBRARIES)
+    pkg_check_modules(MINIZIP minizip)
+  endif()
 endif()
 
 if (NOT MINIZIP_LIBRARIES)
-	message(FATAL_ERROR "Minzip library not found!")
+	message(FATAL_ERROR "Minzip library >= 2.7.0 not found! Can grab from https://github.com/nmoinvaz/minizip or better yet with your system's package manager!")
 endif()
 
 set(ENABLE_EXPORTS, true)

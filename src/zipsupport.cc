@@ -7,6 +7,10 @@
 
 static uint32_t unix2dostime(time_t *time);
 
+#ifndef mz_dos_date 
+#define mz_dos_date dosDate
+#endif
+
 int ZipFile::openArchive(std::string filename, int append)
 {
   int status = 0;
@@ -60,12 +64,22 @@ int ZipFile::addFile(std::string filename, BYTE* buff, int64_t size)
 
   memset(&zinfo, 0, sizeof(zinfo));
   time(&currentTime);
+  
   zinfo.mz_dos_date = unix2dostime(&currentTime);
   zinfo.internal_fa = 0644;
   zinfo.external_fa = 0644 << 16L;
 
+  #ifdef zipOpenNewFileInZip_64
   int status = zipOpenNewFileInZip_64(mZipArchive, filename.c_str(), &zinfo, 
-    NULL, 0, NULL, 0, NULL, mCompressMethod, mCompressFlags, (size > 0xFFFFFFFFLL) ? 1 : 0); 
+    NULL, 0, NULL, 0, NULL, mCompressMethod, mCompressFlags, 
+    (size > 0xFFFFFFFFLL) ? 1 : 0); 
+  #else
+  int status = zipOpenNewFileInZip4_64(mZipArchive, filename.c_str(), &zinfo, 
+    NULL, 0, NULL, 0, NULL, mCompressMethod, mCompressFlags, 
+    0, 0, 0, 0, NULL, 0, MZ_VERSION_MADEBY, 0, 
+    (size > 0xFFFFFFFFLL) ? 1 : 0); 
+  #endif
+
   if (status == ZIP_OK)
   {
     status = zipWriteInFileInZip(mZipArchive, buff, size);
@@ -115,8 +129,17 @@ int ZipFile::addDir(std::string name)
   {
     return ZIP_OK;
   }
+  #ifdef zipOpenNewFileInZip_64
   status = zipOpenNewFileInZip_64(mZipArchive, nameWithSlash.c_str(), 
-    &zinfo, NULL, 0, NULL, 0, NULL, MZ_COMPRESS_METHOD_STORE, 0, 0); 
+    &zinfo, NULL, 0, NULL, 0, NULL, MZ_COMPRESS_METHOD_STORE, 0, 
+    0); 
+  #else
+  status = zipOpenNewFileInZip4_64(mZipArchive, nameWithSlash.c_str(), 
+    &zinfo, NULL, 0, NULL, 0, NULL, MZ_COMPRESS_METHOD_STORE, 0, 
+    0, 0, 0, 0, NULL, 0, MZ_VERSION_MADEBY, 0, 
+    0); 
+  #endif
+
   if (status == ZIP_OK)
   {
     mDirNames.push_back(nameWithSlash);
