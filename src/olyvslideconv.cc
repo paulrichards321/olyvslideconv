@@ -768,14 +768,23 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     l.scanBkgd = false;
   }
-  l.fillin = (mOptBlend && l.scanBkgd==false && l.olympusLevel < 2 && slide->checkLevel(2)) ? true : false;
+  l.fillin = (mOptBlend && l.scanBkgd==false && l.olympusLevel < 2) ? true : false;
 
   l.srcTotalWidth = slide->getActualWidth(olympusLevel);
   l.srcTotalHeight = slide->getActualHeight(olympusLevel);
-  if (l.fillin)
+  if (l.fillin && slide->checkLevel(2))
   {
     l.srcTotalWidthL2 = slide->getActualWidth(2);
     l.srcTotalHeightL2 = slide->getActualHeight(2);
+  }
+  else if (l.fillin && slide->checkLevel(3))
+  {
+    l.srcTotalWidthL2 = slide->getActualWidth(3);
+    l.srcTotalHeightL2 = slide->getActualHeight(3);
+  }
+  else
+  {
+    l.fillin = false;
   }
   l.destTotalWidthDec = (double) mBaseTotalWidth / (double) l.magnifyX;
   l.destTotalHeightDec = (double) mBaseTotalHeight / (double) l.magnifyY;
@@ -1183,6 +1192,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             bool allocOk = slide->allocate(&l.subTileBitmap, olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
             if (allocOk == false) continue; 
             l.pBitmapSrc = &l.subTileBitmap;
+            l.pBitmapFinal = &l.subTileBitmap;
             safeBmpByteSet(&l.subTileBitmap, l.bkgdColor);
             
             l.readWidth=0;
@@ -1284,7 +1294,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             std::string errMsg;
             if (l.optGoogle)
             {
-              std::cerr << "Failed to write jpeg tile '" << l.pTileName << "' reason: " << mZip->getErrorMsg() << std::endl;
+              std::cerr << "Failed to write jpeg tile '" << *l.pTileName << "' reason: " << mZip->getErrorMsg() << std::endl;
             }
             else if (l.optTif && l.tiled)
             {
@@ -1360,10 +1370,24 @@ int SlideConvertor::checkFullL2(int64_t *pReadWidthL2, int64_t *pReadHeightL2, s
   *pFullL2 = NULL;
   *pReadWidthL2=0;
   *pReadHeightL2=0;
-  if (!slide->checkLevel(2)) return 1;
 
-  int64_t srcTotalWidthL2 = slide->getActualWidth(2);
-  int64_t srcTotalHeightL2 = slide->getActualHeight(2);
+  int64_t srcTotalWidthL2 = 0;
+  int64_t srcTotalHeightL2 = 0;
+  if (slide->checkLevel(2))
+  {
+    srcTotalWidthL2 = slide->getActualWidth(2);
+    srcTotalHeightL2 = slide->getActualHeight(2);
+  }
+  else if (slide->checkLevel(3))
+  {
+    srcTotalWidthL2 = slide->getActualWidth(3);
+    srcTotalHeightL2 = slide->getActualHeight(3);
+  }
+  else
+  {
+    return 1;
+  }
+
   if (srcTotalWidthL2 <= 0 || srcTotalHeightL2 <= 0) return 1;
   if (!mpImageL2) return 2;
   if (mpImageL2->width > 0 && mpImageL2->height > 0 && mpImageL2->data) 
@@ -1414,17 +1438,30 @@ int SlideConvertor::convert2Tif()
   int divisor = 1;
   int step = 1;
   int options = LEVEL_SCANBKGD | LEVEL_TILED; 
-  error=outputLevel(mBaseLevel, divisor, step, options, readWidthL2, readHeightL2, pFullL2Bitmap);
+  if (mOptBlend)
+  {
+    error=outputLevel(mBaseLevel, divisor, step, options, readWidthL2, readHeightL2, pFullL2Bitmap);
+  }
 
   while (divisor != maxDivisor && error==0)
   {
     int tiled = 1;
     int olympusLevel = 1;
+    if (mOptBlend==false)
+    {
+      for (olympusLevel = 0; olympusLevel < 4; olympusLevel++)
+      {
+        if (slide->checkLevel(olympusLevel)) break;
+      }
+    }
     switch (step)
     {
       case 1:
         divisor = 1;
-        olympusLevel = 0; 
+        if (slide->checkLevel(0))
+        {
+          olympusLevel = 0; 
+        }
         break;
       case 2:
         divisor = maxDivisor * 2;
@@ -1495,17 +1532,30 @@ int SlideConvertor::convert2Gmap()
   int64_t divisor = 1 << mTopOutLevel;
   int outLevel = 0;
 
-  error=outputLevel(mBaseLevel, 1, 0, LEVEL_TILED | LEVEL_SCANBKGD, readWidthL2, readHeightL2, pFullL2Bitmap);
+  if (mOptBlend)
+  {
+    error=outputLevel(mBaseLevel, 1, 0, LEVEL_TILED | LEVEL_SCANBKGD, readWidthL2, readHeightL2, pFullL2Bitmap);
+  }
   while (outLevel <= mTopOutLevel && error==0)
   {
     int olympusLevel;
-    if (divisor < 4)
+    if (slide->checkLevel(0) && slide->checkLevel(1) && mOptBlend)
     {
-      olympusLevel = 0;
+      if (divisor < 4)
+      {
+        olympusLevel = 0;
+      }
+      else
+      {
+        olympusLevel = 1;
+      }
     }
-    else
+    else 
     {
-      olympusLevel = 1;
+      for (olympusLevel = 0; olympusLevel < 4; olympusLevel++)
+      {
+        if (slide->checkLevel(olympusLevel)) break;
+      }
     }
     error=outputLevel(olympusLevel, divisor, outLevel, LEVEL_TILED, readWidthL2, readHeightL2, pFullL2Bitmap);
     divisor /= 2;

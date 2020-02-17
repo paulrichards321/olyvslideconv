@@ -151,6 +151,7 @@ public:
   double mxAdj, myAdj;
   int64_t mtotalTiles;
   int64_t mxAxis, myAxis;
+  bool mxKnowStepSize, myKnowStepSize, mKnowStepSizes;
   int64_t mtotalWidth, mtotalHeight;
   int64_t mdetailedWidth, mdetailedHeight;
   bool mIsPreviewSlide;

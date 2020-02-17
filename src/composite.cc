@@ -150,7 +150,7 @@ void CompositeSlide::close()
 
 bool CompositeSlide::checkLevel(int level)
 {
-  if (mValidObject == false || level < 0 || level > (int) mConf.size() || mConf[level]->mfound == false) 
+  if (mValidObject == false || level < 0 || level > (int) mConf.size() || mConf[level]->mfound == false || mConf[level]->mKnowStepSizes == false) 
   {
     return false;
   }
@@ -489,10 +489,20 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
       if (fileNum>0 && mConf[fileNum-1]->mfound && mConf[fileNum-1]->mxStepSize>0)
       {
         pConf->mxStepSize = mConf[fileNum-1]->mxStepSize*4;
+        pConf->mxKnowStepSize = true;
       }
       else
       {
-        pConf->mxStepSize = pConf->mxDiffMin;
+        if (pConf->mxDiffMin > 0)
+        {
+          pConf->mxStepSize = pConf->mxDiffMin;
+          pConf->mxKnowStepSize = true;
+        }
+        else
+        {
+          pConf->mxStepSize = abs(pConf->mxMax);
+          pConf->mxKnowStepSize = false;
+        }
       }
       if (optDebug > 1) logFile << "fileName=" << pConf->mname << " Guessing xAdj=";
     }
@@ -512,14 +522,25 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
       if (fileNum>0 && mConf[fileNum-1]->mfound && mConf[fileNum-1]->myStepSize>0)
       {
         pConf->myStepSize = (double) (mConf[fileNum-1]->myStepSize*4);
+        pConf->myKnowStepSize = true;
       }
       else
       {
-        pConf->myStepSize = pConf->myDiffMin;
+        if (pConf->myDiffMin > 0)
+        {
+          pConf->myStepSize = pConf->myDiffMin;
+          pConf->myKnowStepSize = true;
+        }
+        else
+        {
+          pConf->myStepSize = abs(pConf->myMax);
+          pConf->myKnowStepSize = false;
+        }
       }
       if (optDebug > 1) logFile << "fileName=" << pConf->mname << " Guessing yAdj=";
     }
     //pConf->myMin -= pConf->myStepSize;
+    pConf->mKnowStepSizes = (pConf->mxKnowStepSize && pConf->myKnowStepSize) ? true : false;
     if (pConf->mpixelHeight>0 && pConf->myStepSize>0)
     {
       pConf->myAdj = (double) pConf->myStepSize / (double) pConf->mpixelHeight;
@@ -649,7 +670,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
   int level=-1;
   for (int min=3; min>=0; min--)
   {
-    if (mConf[min]->mfound==true)
+    if (mConf[min]->mfound==true && mConf[min]->mKnowStepSizes==true)
     {
       level=min;
       break;
@@ -703,10 +724,12 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
     }
   }
   
+  /*
   int highestLvl;
-  for (highestLvl = 3; highestLvl >= 1 && mConf[highestLvl]->mfound==false; highestLvl--);
+  for (highestLvl = 3; highestLvl >= 1 && (mConf[highestLvl]->mfound==false || mConf[highestLvl]->mKnowStepSizes==false); highestLvl--);
+  */
 
-  if (mConf[2]->mfound)
+  if (mConf[2]->mfound && mConf[2]->mKnowStepSizes)
   {
     mConf[2]->mtotalWidth = (double)(mConf[2]->mxMax - (mConf[2]->mxMin - mConf[2]->mxStepSize)) / (double) mConf[2]->mxAdj;
     mConf[2]->mtotalHeight = (double)(mConf[2]->myMax - (mConf[2]->myMin - mConf[2]->myStepSize)) / (double) mConf[2]->myAdj;
@@ -720,19 +743,17 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
     mConf[0]->mtotalWidth = mConf[2]->mtotalWidth * multiX[0];
     mConf[0]->mtotalHeight = mConf[2]->mtotalHeight * multiY[0];
   }
-  else if (mConf[3]->mfound)
+  else if (mConf[3]->mfound && mConf[3]->mKnowStepSizes)
   {
     mConf[3]->mtotalWidth = (double)(mConf[3]->mxMax - (mConf[3]->mxMin - mConf[3]->mxStepSize)) / (double) mConf[3]->mxAdj;
     mConf[3]->mtotalHeight = (double)(mConf[3]->myMax - (mConf[3]->myMin - mConf[3]->myStepSize)) / (double) mConf[3]->myAdj;
 
     mConf[1]->mtotalWidth = mConf[3]->mtotalWidth * multiX[1];
     mConf[1]->mtotalHeight = mConf[3]->mtotalHeight * multiY[1];
-
     mConf[0]->mtotalWidth = mConf[3]->mtotalWidth * multiX[0];
     mConf[0]->mtotalHeight = mConf[3]->mtotalHeight * multiY[0];
   }
-
-  if (highestLvl==1)
+  else if (mConf[1]->mfound && mConf[1]->mKnowStepSizes)
   {
     mConf[1]->mtotalWidth = (double)(mConf[1]->mxMax - (mConf[1]->mxMin - mConf[1]->mxStepSize)) / (double) mConf[1]->mxAdj;
     mConf[1]->mtotalHeight = (double)(mConf[1]->myMax - (mConf[1]->myMin - mConf[1]->myStepSize)) / (double) mConf[1]->myAdj;
@@ -740,11 +761,15 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
     mConf[0]->mtotalWidth = mConf[1]->mtotalWidth * multiX[0];
     mConf[0]->mtotalHeight = mConf[1]->mtotalHeight * multiY[0];
   }
-  else if (highestLvl==0)
+  else
   {
-    mConf[0]->mtotalWidth = (double)(mConf[0]->mxMax - (mConf[0]->mxMin - mConf[0]->mxStepSize)) / (double) mConf[0]->mxAdj;
-    mConf[0]->mtotalHeight = (double)(mConf[0]->myMax - (mConf[0]->myMin - mConf[0]->myStepSize)) / (double) mConf[0]->myAdj;
+    for (int fileNum=0; fileNum < 4; fileNum++)
+    {
+      mConf[fileNum]->mtotalWidth = (double)(mConf[fileNum]->mxMax - (mConf[fileNum]->mxMin - mConf[fileNum]->mxStepSize)) / (double) mConf[fileNum]->mxAdj;
+      mConf[fileNum]->mtotalHeight = (double)(mConf[fileNum]->myMax - (mConf[fileNum]->myMin - mConf[fileNum]->myStepSize)) / (double) mConf[fileNum]->myAdj;
+    }
   }
+
   // log file width and height
   for (int fileNum=0; fileNum < 4; fileNum++)
   {
@@ -758,13 +783,13 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
   bool higherLevelFound = false, lowerLevelFound = false;
   //double higherLevelXDiv, higherLevelYDiv;
   //int64_t zoomedXDetail, zoomedYDetail;
-  if (mConf[2]->mfound)
+  if (mConf[2]->mfound && mConf[2]->mKnowStepSizes)
   {
     pHigherConf = mConf[2];
     higherLevelFound = true;
     higherLevel = 2;
   }
-  else if (mConf[3]->mfound)
+  else if (mConf[3]->mfound && mConf[3]->mKnowStepSizes)
   {
     pHigherConf = mConf[3];
     higherLevelFound = true;
