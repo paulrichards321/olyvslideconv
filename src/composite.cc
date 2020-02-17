@@ -483,6 +483,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
     if (pConf->mxStepSize>0)
     {
       if (optDebug > 1) logFile << "fileName=" << pConf->mname << " xAdj calculation exact=";
+      pConf->mxKnowStepSize = true;
     }
     else
     {
@@ -516,6 +517,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
     if (pConf->myStepSize>0)
     {
       if (optDebug > 1) logFile << "fileName=" << pConf->mname << " yAdj calculation exact=";
+      pConf->myKnowStepSize = true;
     }
     else
     {
