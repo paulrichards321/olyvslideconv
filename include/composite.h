@@ -180,7 +180,7 @@ protected:
   bool mValidObject;
   uint8_t mbkgColor;
   std::vector<IniConf*> mConf; 
-  static const char* miniNames[4];
+  static const char* miniNames[4][4];
   double mxStart, myStart;
   int mlevel;
   int64_t mbaseWidth, mbaseHeight;

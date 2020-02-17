@@ -32,11 +32,26 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <sys/types.h>
 #include "olyvslideconv.h"
 
-const char* CompositeSlide::miniNames[] = 
+const char* CompositeSlide::miniNames[4][4] = 
 { 
-  "FinalScan.ini", "FinalCond.ini", 
-  "SlideScan.ini", "SlideCond.ini" 
+  {
+    "FinalScan.ini", "FinalCond.ini", 
+    "SlideScan.ini", "SlideCond.ini" 
+  },
+  {
+    "finalscan.ini", "finalcond.ini", 
+    "slidescan.ini", "slidecond.ini" 
+  },
+  {
+    "finalScan.ini", "finalCond.ini", 
+    "slideScan.ini", "slideCond.ini" 
+  },
+  {
+    "Finalscan.ini", "Finalcond.ini", 
+    "Slidescan.ini", "Slidecond.ini" 
+  }
 };
+
 
 CompositeSlide::CompositeSlide()
 {
@@ -115,7 +130,7 @@ void CompositeSlide::initialize()
   for (int i=0; i<4; i++)
   {
     IniConf *mConfLocal = new IniConf;
-    mConfLocal->mname = miniNames[i];
+    mConfLocal->mname = miniNames[0][i];
     mConf.push_back(mConfLocal);
   }
   mxMin=0;
@@ -188,11 +203,14 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
 
   for (int i=0; i<4; i++)
   {
-    size_t namePos=inputDir.find(miniNames[i]);
-    if (namePos != std::string::npos)
+    for (int cases=0; cases < 4; cases++)
     {
-      inputDir = srcFileName.substr(0, namePos-1);
-      break;
+      size_t namePos=inputDir.find(miniNames[cases][i]);
+      if (namePos != std::string::npos)
+      {
+        inputDir = srcFileName.substr(0, namePos-1);
+        break;
+      }
     }
   }
   if (inputDir.length()>0)
@@ -212,23 +230,34 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int optDe
   for (int fileNum = 0; fileNum < 4; fileNum++)
   {
     IniConf* pConf = mConf[fileNum];
-    std::string inputName = inputDir;
-    inputName += separator();
-    inputName += miniNames[fileNum];
+    std::string inputName;
+    std::ifstream iniFile;
+    bool foundFile = false;
 
+    for (int cases=0; cases < 4 && foundFile==false; cases++)
+    {
+      inputName = inputDir;
+      inputName += separator();
+      inputName += miniNames[cases][fileNum];
+    
+      iniFile.open(inputName.c_str());
+      if (iniFile.good())
+      {
+        std::cout << "Found: '" << inputName << "'" << std::endl;
+        foundFile = true;
+      }
+    }
+    if (foundFile==false)
+    {
+      inputName = inputDir;
+      inputName += separator();
+      inputName += miniNames[0][fileNum];
+      std::cout << "Warning: Failed to open: '" << inputName << "'!" << std::endl;
+    }
     xFound = false;
     yFound = false;
     nameFound = false;
     header = false;
-    std::ifstream iniFile(inputName.c_str());
-    if (iniFile.good())
-    {
-      std::cout << "Found: '" << inputName << "'" << std::endl;
-    }
-    else
-    {
-      std::cout << "Warning: Failed to open: '" << inputName << "'!" << std::endl;
-    }
 
     int c = 0;
     while (iniFile.good() && iniFile.eof()==false)
