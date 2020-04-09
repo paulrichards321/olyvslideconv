@@ -86,7 +86,7 @@ bool Jpg::testHeader(BYTE* header, int)
 }
 
 
-bool Jpg::open(const std::string& newFileName, bool setGrayScale)
+bool Jpg::open(const std::string& newFileName, int orientation, bool setGrayScale)
 {
   FILE *infile = NULL;
   struct jpeg_decompress_struct cinfo;
@@ -129,30 +129,110 @@ bool Jpg::open(const std::string& newFileName, bool setGrayScale)
       cinfo.out_color_space = JCS_GRAYSCALE;
     }
     jpeg_start_decompress(&cinfo);
-    mrenderedWidth = mactualWidth = cinfo.output_width;
-    mrenderedHeight = mactualHeight = cinfo.output_height;
+    if (orientation == 90 || orientation == -90 || orientation == 270)
+    {
+      mrenderedWidth = mactualWidth = cinfo.output_height;
+      mrenderedHeight = mactualHeight = cinfo.output_width;
+    }
+    else
+    {
+      mrenderedWidth = mactualWidth = cinfo.output_width;
+      mrenderedHeight = mactualHeight = cinfo.output_height;
+    }
     mbitCount = msamplesPerPixel * 8;
 
     mpFullBitmap = new BYTE[mactualWidth * mactualHeight * msamplesPerPixel];
     memset(mpFullBitmap, mbkgColor, mactualWidth * mactualHeight * msamplesPerPixel);
-    pjSampleRows = new JSAMPROW[mactualHeight];
-    for (int y = 0; y < mactualHeight; y++)
-    {
-      pjSampleRows[y] = &mpFullBitmap[mactualWidth * y * msamplesPerPixel];
-    }
+    int destLineWidth = mactualWidth * msamplesPerPixel;
     int totalScanlines=0;
-    while (cinfo.output_scanline < cinfo.output_height) 
+    if (orientation == 0)
     {
-       totalScanlines+=jpeg_read_scanlines(&cinfo, &pjSampleRows[totalScanlines], mactualHeight-totalScanlines);
-       
+      pjSampleRows = new JSAMPROW[mactualHeight];
+      for (int y = 0; y < mactualHeight; y++)
+      {
+        pjSampleRows[y] = &mpFullBitmap[mactualWidth * y * msamplesPerPixel];
+      }
+      while (cinfo.output_scanline < cinfo.output_height) 
+      {
+        totalScanlines += jpeg_read_scanlines(&cinfo, &pjSampleRows[totalScanlines], mactualHeight-totalScanlines);
+      }
+      delete[] pjSampleRows;
+      mrenderedHeight=mactualHeight=totalScanlines;
     }
+    else if (orientation == 90)
+    {
+      std::vector<JSAMPLE> jSamples(cinfo.output_width * 3);
+      JSAMPROW pjSampleRow = &jSamples[0];
+      JSAMPARRAY pjSampleArray = &pjSampleRow;
+      BYTE* pDestEnd = mpFullBitmap + (destLineWidth * mactualHeight);
+      BYTE *pDestStart = mpFullBitmap + (destLineWidth - 3);
+      while (cinfo.output_scanline < cinfo.output_height) 
+      {
+        jpeg_read_scanlines(&cinfo, pjSampleArray, 1);
+        BYTE* pSrc = &jSamples[0];
+        BYTE* pDest = pDestStart;
+        while (pDest < pDestEnd)
+        {
+          pDest[0] = pSrc[0];
+          pDest[1] = pSrc[1];
+          pDest[2] = pSrc[2];
+          pSrc += 3;
+          pDest += destLineWidth;
+        }
+        pDestStart -= 3;
+      }
+    }
+    else if (orientation == -90 || orientation == 270)
+    {
+      std::vector<JSAMPLE> jSamples(cinfo.output_width * 3);
+      JSAMPROW pjSampleRow = &jSamples[0];
+      JSAMPARRAY pjSampleArray = &pjSampleRow;
+      BYTE* pLastRow = mpFullBitmap + ((mactualHeight - 1) * destLineWidth);
+      int destX = 0;
+      while (cinfo.output_scanline < cinfo.output_height) 
+      {
+        jpeg_read_scanlines(&cinfo, pjSampleArray, 1);
+        BYTE* pSrc = &jSamples[0];
+        BYTE* pDest = pLastRow + (destX * 3);
+        while (pDest >= mpFullBitmap)
+        {
+          pDest[0] = pSrc[0];
+          pDest[1] = pSrc[1];
+          pDest[2] = pSrc[2];
+          pSrc += 3;
+          pDest -= destLineWidth;
+        }
+        destX++;
+      }
+    }
+    else if (orientation == 180)
+    {
+      std::vector<JSAMPLE> jSamples(cinfo.output_width * 3);
+      JSAMPROW pjSampleRow = &jSamples[0];
+      JSAMPARRAY pjSampleArray = &pjSampleRow;
+      BYTE* pSrcEnd = &jSamples[destLineWidth];
+      BYTE* pDestStart = mpFullBitmap + ((mactualHeight - 1) * destLineWidth) + (destLineWidth - 3);
+      while (cinfo.output_scanline < cinfo.output_height) 
+      {
+        jpeg_read_scanlines(&cinfo, pjSampleArray, 1);
+        BYTE* pSrc = &jSamples[0];
+        BYTE* pDest = pDestStart;
+        while (pSrc < pSrcEnd)
+        {
+          pDest[0] = pSrc[0];
+          pDest[1] = pSrc[1];
+          pDest[2] = pSrc[2];
+          pSrc += 3;
+          pDest -= 3;
+        }
+        pDestStart -= destLineWidth;
+      }
+    } 
     jpeg_finish_decompress(&cinfo);
     jpeg_destroy_decompress(&cinfo);
     fclose(infile);
     infile = 0;
-    delete[] pjSampleRows;
     mValidObject=true;
-    mrenderedHeight=mactualHeight=totalScanlines;
   }
   catch (jpeg_error_mgr* pJerr) 
   {
@@ -205,6 +285,8 @@ bool Jpg::read(int x, int y, int width, int height, bool passedGrayscale)
     std::cerr << "In jpeg::read parameters out of bounds." << std::endl;
     return false;
   }
+  std::cerr << " x=" << x << " width=" << width << std::endl;
+
   if (x+width > mactualWidth)
   {
     width = mactualWidth - x;
@@ -213,7 +295,8 @@ bool Jpg::read(int x, int y, int width, int height, bool passedGrayscale)
   if (y+height > mactualHeight)
   {
     height = mactualHeight - y;
-    std::cerr << "In jpeg::read, height truncated." << std::endl;
+    std::cerr << "In jpeg::read, height truncated." << " Actual height=" << mactualHeight;
+    std::cerr << " y=" << y << " height=" << height << std::endl;
   }
   int samplesPerPixel=3;
   if (passedGrayscale || mGrayScale)

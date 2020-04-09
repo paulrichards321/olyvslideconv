@@ -44,7 +44,7 @@ void JpgCache::releaseAll()
   mjpgs.clear();
 }
 
-Jpg* JpgCache::open(const std::string& newFileName, bool setGrayScale)
+Jpg* JpgCache::open(const std::string& newFileName, int orientation, bool setGrayScale)
 {
   Jpg *jpg = 0;
   std::vector<Jpg*>::iterator it;
@@ -71,7 +71,7 @@ Jpg* JpgCache::open(const std::string& newFileName, bool setGrayScale)
   if (jpg == 0)
   {
     jpg = new Jpg;
-    jpg->open(newFileName, setGrayScale);
+    jpg->open(newFileName, orientation, setGrayScale);
     if (mjpgs.size()+1 > mMaxOpen)
     {
       Jpg *lastJpg=mjpgs.back();

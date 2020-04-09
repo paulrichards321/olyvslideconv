@@ -41,7 +41,7 @@ public:
   bool load(const std::string& newFileName);
   bool read(int x, int y, int width, int height, bool setGrayScale = false);
   bool unbufferedRead(int x, int y, int width, int height);
-  bool open(const std::string& newFileName, bool setGrayScale = false);
+  bool open(const std::string& newFileName, int orientation = 0, bool setGrayScale = false);
   void close();
   void initialize();
   Jpg() : Image() { initialize(); }

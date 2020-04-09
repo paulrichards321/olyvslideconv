@@ -28,13 +28,13 @@ bool CompositeSlide::drawBorder(BYTE *pBmp, int samplesPerPixel, int64_t x, int6
 
   double xZoomOut = pHigherConf->mxAdj / pLowerConf->mxAdj;
   double yZoomOut = pHigherConf->myAdj / pLowerConf->myAdj;
-  int64_t fileWidth=(int64_t) lround(pLowerConf->mpixelWidth / xZoomOut);
-  int64_t fileHeight=(int64_t) lround(pLowerConf->mpixelHeight / yZoomOut);
+  int64_t fileWidth=(int64_t) lround(pLowerConf->mPixelWidth / xZoomOut);
+  int64_t fileHeight=(int64_t) lround(pLowerConf->mPixelHeight / yZoomOut);
   //int64_t xTolerance=(int64_t)(((double)fileWidth) / 4);
   //int64_t yTolerance=(int64_t)(((double)fileHeight) / 4);
   //int64_t xLastPos=-1,yLastPos=-1;
   //int64_t xNextPos=-1,yNextPos=-1;
-  for (int64_t tileNum=0; tileNum<pLowerConf->mtotalTiles; tileNum++)
+  for (int64_t tileNum=0; tileNum<pLowerConf->mTotalTiles; tileNum++)
   {
     int64_t xCurrentPos=(int64_t) lround(pLowerConf->mxyArr[tileNum].mxPixel / xZoomOut);
     int64_t yCurrentPos=(int64_t) lround(pLowerConf->mxyArr[tileNum].myPixel / yZoomOut);
@@ -48,7 +48,7 @@ bool CompositeSlide::drawBorder(BYTE *pBmp, int samplesPerPixel, int64_t x, int6
       int64_t x2=0, x3=fileWidth;
       int64_t x4=0, x5=fileWidth;
 
-      for (int64_t tileNum2=0; tileNum2<pLowerConf->mtotalTiles; tileNum2++)
+      for (int64_t tileNum2=0; tileNum2<pLowerConf->mTotalTiles; tileNum2++)
       {
         int64_t xCurrentPos2=(int64_t) lround(pLowerConf->mxyArr[tileNum2].mxPixel / xZoomOut);
         int64_t yCurrentPos2=(int64_t) lround(pLowerConf->mxyArr[tileNum2].myPixel / yZoomOut);

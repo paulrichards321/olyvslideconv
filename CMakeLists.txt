@@ -3,6 +3,13 @@ project( olyvslideconv LANGUAGES C CXX )
 
 include(CheckStructHasMember)
 
+if (NOT CMAKE_BUILD_TYPE)
+  set (CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
 option(USE_MAGICK "Use ImageMagick instead of OpenCV for processing." OFF)
 option(USE_OPENCV "Use OpenCV for image processing instead of ImageMagick." ON)
 
@@ -86,8 +93,6 @@ set(ENABLE_EXPORTS, true)
 set (CMAKE_CXX_STANDARD 11)
 set (CMAKE_CXX_EXTENSIONS OFF)
 set (CMAKE_CXX_STANDARD_REQUIRED YES)
-
-set(CMAKE_CXX_FLAGS_DEBUG "-g -pg -O0")
 
 set( MAIN_SRC
   src/safebmp.cc

@@ -299,6 +299,7 @@ protected:
   int64_t mOptMaxMem;
   bool mOptUseGamma;
   double mOptGamma;
+  int mOrientation;
   CompositeSlide *slide;
   Tiff *mTif;
   ZipFile *mZip;
@@ -320,6 +321,7 @@ protected:
   int64_t mTotalXSections, mTotalYSections;
   BlendSection **mxSubSections;
   BlendSection **mySubSections;
+  int mDefaultWidth, mDefaultHeight;
 public:
   #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) || defined(__MINGW__)
   static const char mPathSeparator='\\';
@@ -335,7 +337,7 @@ public:
   void setDebugLevel(int optDebug) { mOptDebug = optDebug; }
   void setQuality(int optQuality) { mOptQuality = optQuality; }
   void setMaxMem(int64_t optMaxMem) { mOptMaxMem = optMaxMem; }
-  int open(std::string inputFile, std::string outputFile, int options, int64_t optXOffset, int64_t optYOffset);
+  int open(std::string inputFile, std::string outputFile, int options, int orientation, int64_t optXOffset, int64_t optYOffset);
   bool my_mkdir(std::string name);
   void calcCenters(int outLevel, int64_t& xCenter, int64_t& yCenter);
   int convert();
@@ -397,6 +399,9 @@ SlideConvertor::SlideConvertor()
   mTotalYSections = 0;
   mxSubSections = NULL;
   mySubSections = NULL;
+  mDefaultWidth = 752;
+  mDefaultHeight = 480;
+  mOrientation = 0;
 }
 
 
@@ -768,6 +773,17 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     l.scanBkgd = false;
   }
+  if (mOrientation == 90 || mOrientation == -90 || mOrientation == 270)
+  {
+    mDefaultWidth = 480;
+    mDefaultHeight = 752;
+  }
+  else
+  {
+    mDefaultWidth = 752;
+    mDefaultHeight = 480;
+  }
+ 
   l.fillin = (mOptBlend && l.scanBkgd==false && l.olympusLevel < 2) ? true : false;
 
   l.srcTotalWidth = slide->getActualWidth(olympusLevel);
@@ -865,20 +881,23 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     l.xBlendFactor = l.magnifyX; 
     l.yBlendFactor = l.magnifyY;
-    l.xBkgdLimit = 752;
-    l.yBkgdLimit = 480;
+    //l.xBkgdLimit = mDefaultWidth;
+    int64_t minDimen = (mDefaultWidth > mDefaultHeight ? mDefaultHeight : mDefaultWidth);
+    
+    l.xBkgdLimit = minDimen;
+    l.yBkgdLimit = minDimen;
     if (l.scanBkgd)
     {
-      l.inputTileWidth = 752;
-      l.inputTileHeight = 480;
-      l.grabWidthA = 752;
-      l.grabHeightA = 480;
-      l.grabWidthB = 752;
-      l.grabHeightB = 480;
-      l.finalOutputWidth = 752;
-      l.finalOutputHeight = 480;
-      l.finalOutputWidth2 = 752;
-      l.finalOutputHeight2 = 480;
+      l.inputTileWidth = mDefaultWidth;
+      l.inputTileHeight = mDefaultHeight;
+      l.grabWidthA = mDefaultWidth;
+      l.grabHeightA = mDefaultHeight;
+      l.grabWidthB = mDefaultWidth;
+      l.grabHeightB = mDefaultHeight;
+      l.finalOutputWidth = mDefaultWidth;
+      l.finalOutputHeight = mDefaultHeight;
+      l.finalOutputWidth2 = mDefaultWidth;
+      l.finalOutputHeight2 = mDefaultHeight;
     }
   }
   else
@@ -1332,6 +1351,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         error = true;
       }
     }
+    if (l.scanBkgd)
+    {
+      //blendLevelsPrune(l.xSubSections, l.totalXSections, l.xBkgdLimit, l.ySubSections, l.totalYSections, l.yBkgdLimit);
+    }
   }
   catch (std::bad_alloc& ba)
   {
@@ -1569,13 +1592,14 @@ int SlideConvertor::convert2Gmap()
 }
 
 
-int SlideConvertor::open(std::string inputFile, std::string outputFile, int options, int64_t optXOffset, int64_t optYOffset)
+int SlideConvertor::open(std::string inputFile, std::string outputFile, int options, int orientation, int64_t optXOffset, int64_t optYOffset)
 {
   mValidObject = false;
   closeRelated();
   logFile = new std::ofstream;
   mOptTif = options & CONV_TIF;
   mOptGoogle = options & CONV_GOOGLE;
+  mOrientation = orientation;
   mOptLog = options & CONV_LOG;
   mOptBlend = options & CONV_BLEND;
   mOptRegion = options & CONV_REGION;
@@ -1586,7 +1610,7 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, int opti
   }
   slide = new CompositeSlide();
   errMsg="";
-  if (slide->open(inputFile.c_str(), options, mOptDebug, optXOffset, optYOffset, &mpImageL2)==false)
+  if (slide->open(inputFile.c_str(), options, orientation, mOptDebug, optXOffset, optYOffset, &mpImageL2)==false)
   {
     return 1;
   }
@@ -1757,6 +1781,7 @@ int main(int argc, char** argv)
   int64_t optMaxJpegCache = SLIDE_DEFAULT_MAX_JPEG_CACHE;
   int64_t optMaxMem = SLIDE_DEFAULT_MAX_MEM; 
   double optGamma = 1.0f;
+  int optSpin = 0;
   int optUseGamma = 0;
   int optXOffset = 0;
   int optYOffset = 0;
@@ -1807,7 +1832,10 @@ SLIDE_DEFAULT_OPENCV_ALIGN ".\n"
 xstringfy(SLIDE_DEFAULT_QUALITY) "%.\n"
 "  -r, --region               Blend the top level with the middle level by\n"
 "                             region, not by empty (completely white) pixel\n"
-"                             background, default " 
+"                             background.\n" 
+"  -s, --spin=x               Set orientation of slide or 'spin' the entire\n"
+"                             by x degrees. Currently only -90, 90, 180, or\n"
+"                             270 degree rotation is supported.\n"
 SLIDE_DEFAULT_REGION ".\n"
 "  -x, --xoffset=x            Manually set X alignment offset of top pyramid\n"
 "                             level with the bottom. Use this if the default\n"
@@ -1848,13 +1876,14 @@ SLIDE_DEFAULT_REGION ".\n"
       {"opencv-align",      no_argument,        0,             'o'},
       {"quality",           required_argument,  0,             'q'},
       {"region",            no_argument,        0,             'r'},
+      {"spin",              required_argument,  0,             's'},
       {"xoffset",           required_argument,  0,             'x'},
       {"yoffset",           required_argument,  0,             'y'},
       {"zstack",            no_argument,        0,             'z'},
       {0,                   0,                  0,             0 }
     };
   
-  while((opt = getopt_long(argc, argv, "gta:bd:hj:lm:oq:rx:y:z", longOptions, &optIndex)) != -1)
+  while((opt = getopt_long(argc, argv, "gta:bd:hj:lm:oq:rs:x:y:z", longOptions, &optIndex)) != -1)
   {
     if (optarg == NULL) optarg = emptyString;
     switch (opt)
@@ -1895,6 +1924,9 @@ SLIDE_DEFAULT_REGION ".\n"
         break;
       case 'r':
         optBlend = getBoolOpt(optarg, invalidOpt);
+        break;
+      case 's':
+        optSpin = getIntOpt(optarg, invalidOpt);
         break;
       case 't':
         optTif = getBoolOpt(optarg, invalidOpt);
@@ -1992,6 +2024,14 @@ SLIDE_DEFAULT_REGION ".\n"
     {
       std::cout << "Output format: TIFF/SVS" << std::endl;
     }
+    if (optSpin == 0)
+    {
+      std::cout << "Slide Orientation: Normal" << std::endl;
+    }
+    else
+    {
+      std::cout << "Slide Orientation: " << optSpin << " degrees" << std::endl;
+    }
     std::cout << "Set logging: " << boolInt2Txt(allOptions & CONV_LOG) << std::endl;
     std::cout << "Set debug level: " << optDebug << std::endl;
     std::cout << "Set minimum quality: " << optQuality << std::endl;
@@ -2042,7 +2082,7 @@ SLIDE_DEFAULT_REGION ".\n"
   #endif
  
   slideConv.setDebugLevel(optDebug);
-  error=slideConv.open(infile.c_str(), outfile.c_str(), allOptions, optXOffset, optYOffset);
+  error=slideConv.open(infile.c_str(), outfile.c_str(), allOptions, optSpin, optXOffset, optYOffset);
   slideConv.setGamma(allOptions & CONV_CUSTOM_GAMMA, optGamma);
   slideConv.setQuality(optQuality);
   slideConv.setMaxMem(optMaxMem * 1024 * 1024);

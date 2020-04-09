@@ -40,9 +40,10 @@
 #define CONV_CUSTOM_XOFFSET   (1 << 6)
 #define CONV_CUSTOM_YOFFSET   (1 << 7)
 #define CONV_CUSTOM_GAMMA     (1 << 8)
-#define CONV_SCANONLY         (1 << 9)
-#define CONV_GOOGLE           (1 << 10)
-#define CONV_TIF              (1 << 11)
+#define CONV_ROTATE_180       (1 << 9)
+#define CONV_SCANONLY         (1 << 10)
+#define CONV_GOOGLE           (1 << 11)
+#define CONV_TIF              (1 << 12)
 
 #define LEVEL_TILED 1
 #define LEVEL_SCANBKGD (1 << 1)

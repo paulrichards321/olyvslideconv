@@ -80,7 +80,7 @@ public:
   std::string getFileName() { return mfileName; }
   BYTE* bitmapPointer() { return mpBitmap; }
   void alignBytes();
-  virtual bool open(const std::string& newFileName, bool setGrayScale = false) = 0;
+  virtual bool open(const std::string& newFileName, int orientation = 0, bool setGrayScale = false) = 0;
   virtual bool read(int x, int y, int width, int height, bool setGrayScale = false) = 0;
   bool setZoomPercentage(double);
   double getZoomPercentage() { return mzoomPercentage; }

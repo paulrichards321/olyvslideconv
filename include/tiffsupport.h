@@ -36,7 +36,7 @@ extern "C" {
 class Tiff : public Image {
 public:
 	bool read(int, int, int, int, bool setGrayScale = false) { return false; }
-  bool open(const std::string&, bool setGrayScale = false) { return false; }
+  bool open(const std::string&, int orientation = 0, bool setGrayScale = false) { return false; }
   bool load(const std::string& newFileName);
   bool createFile(const std::string& newFilename);
   bool setThumbNail();

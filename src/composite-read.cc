@@ -15,8 +15,8 @@ bool CompositeSlide::read(BYTE *pBmp, int level, int direction, int zLevel, int6
   {
     return false;
   }
-  int64_t actualWidth = mConf[level]->mtotalWidth;
-  int64_t actualHeight = mConf[level]->mtotalHeight;
+  int64_t actualWidth = mConf[level]->mTotalWidth;
+  int64_t actualHeight = mConf[level]->mTotalHeight;
   if (x>actualWidth || y>actualHeight)
   {
     std::cerr << "Warning: in CompositeSlide::read: x or y out of bounds: x=" << x << " y=" << y << std::endl;
@@ -50,11 +50,20 @@ bool CompositeSlide::read(BYTE *pBmp, int level, int direction, int zLevel, int6
  
   int64_t bmpSize=maxWidth*maxHeight*samplesPerPixel;
   IniConf* pConf=mConf[level];
-  int64_t fileWidth=pConf->mpixelWidth;
-  int64_t fileHeight=pConf->mpixelHeight;
+  int64_t fileWidth, fileHeight;
+  if (mOrientation == 90 || mOrientation == -90 || mOrientation == 270)
+  {
+    fileWidth=pConf->mPixelHeight;
+    fileHeight=pConf->mPixelWidth;
+  }
+  else
+  {
+    fileWidth=pConf->mPixelWidth;
+    fileHeight=pConf->mPixelHeight;
+  }
   int64_t widthGrab=0, heightGrab=0;
   int64_t totalTilesRead=0;
-  for (int64_t tileNum=0; tileNum<pConf->mtotalTiles; tileNum++)
+  for (int64_t tileNum=0; tileNum<pConf->mTotalTiles; tileNum++)
   {
     if (zLevel > 0 && direction > 0 && pConf->mxyArr[tileNum].mzStack[direction-1][zLevel] == false) continue;
     int64_t xFilePos=pConf->mxyArr[tileNum].mxPixel;
@@ -104,7 +113,7 @@ bool CompositeSlide::read(BYTE *pBmp, int level, int direction, int zLevel, int6
       }
       */
       std::string& fileName=(direction > 0 ? pConf->mxyArr[tileNum].mFileName[direction-1][zLevel] : pConf->mxyArr[tileNum].mBaseFileName);
-      pjpg=jpgCache.open(fileName, setGrayScale);
+      pjpg=jpgCache.open(fileName, mOrientation, setGrayScale);
       if (pjpg->isValidObject() && pjpg->read(xRead, yRead, widthGrab, heightGrab))
       {
         int64_t jpgCX=pjpg->getReadWidth();
@@ -165,8 +174,8 @@ bool CompositeSlide::allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, in
   {
     return false;
   }
-  int64_t actualWidth=mConf[level]->mtotalWidth;
-  int64_t actualHeight=mConf[level]->mtotalHeight;
+  int64_t actualWidth=mConf[level]->mTotalWidth;
+  int64_t actualHeight=mConf[level]->mTotalHeight;
   if (x>actualWidth || y>actualHeight)
   {
     std::cerr << "x or y out of bounds: x=" << x << " y=" << y;

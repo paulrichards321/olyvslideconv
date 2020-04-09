@@ -9,8 +9,8 @@ void CompositeSlide::blendLevelsByRegion(safeBmp* pSafeDest, safeBmp* pSafeSrc, 
 {
   if (checkLevel(srcLevel)==false) return;
   IniConf *pLowerConf=mConf[srcLevel];
-  int64_t fileWidth=pLowerConf->mpixelWidth;
-  int64_t fileHeight=pLowerConf->mpixelHeight;
+  int64_t fileWidth=pLowerConf->mPixelWidth;
+  int64_t fileHeight=pLowerConf->mPixelHeight;
   int64_t tileWidth=pSafeDest->width;
   int64_t tileHeight=pSafeDest->height;
 
@@ -19,7 +19,7 @@ void CompositeSlide::blendLevelsByRegion(safeBmp* pSafeDest, safeBmp* pSafeSrc, 
   if (pSafeSrc->height < tileHeight)
     tileHeight = pSafeSrc->height;
     
-  for (int64_t tileNum=0; tileNum<pLowerConf->mtotalTiles; tileNum++)
+  for (int64_t tileNum=0; tileNum<pLowerConf->mTotalTiles; tileNum++)
   {
     int64_t xCurrentPos=(int64_t) pLowerConf->mxyArr[tileNum].mxPixel;
     int64_t yCurrentPos=(int64_t) pLowerConf->mxyArr[tileNum].myPixel;

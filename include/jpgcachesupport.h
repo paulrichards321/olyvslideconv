@@ -13,7 +13,7 @@ public:
   ~JpgCache() { releaseAll(); }
   void releaseAll();
   void release(Jpg *pjpg);
-  Jpg* open(const std::string& newFileName, bool setGrayScale);
+  Jpg* open(const std::string& newFileName, int orientation, bool setGrayScale);
   void setMaxOpen(int maxOpen) { mMaxOpen = maxOpen; }
 protected:
   unsigned int mMaxOpen;

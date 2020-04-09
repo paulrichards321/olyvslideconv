@@ -24,6 +24,7 @@ public:
   inline int getFree() { return this->free; }
   inline BlendSection* getNext() { return this->next; }
   inline BlendSection* getPrevious() { return this->previous; }
+  inline void setFree(int64_t free) { this->free = free; }
 };
 
 
@@ -39,11 +40,18 @@ typedef struct
   int64_t ySize;
   int xLimit, yLimit;
   BYTE bkgdColor;
+  BYTE **rows; 
+  int64_t tileWidth, tileHeight;
+  int64_t baseWidth;
+  int64_t bufferHeight;
+  bool bufferFlipped;
+  bool bufferFull;
 } BlendBkgdArgs;
 
 void blendLevelsScan(BlendBkgdArgs* args);
 void blendLevelsByBkgd(BlendBkgdArgs *args);
 void blendLevelsFree(BlendSection** xFreeMap, int64_t xSize, BlendSection** yFreeMap, int64_t ySize);
+void blendLevelsPrune(BlendSection** xFreeMap, int64_t xSize, int64_t xLimit, BlendSection** yFreeMap, int64_t ySize, int64_t yLimit);
 
 #endif
 
