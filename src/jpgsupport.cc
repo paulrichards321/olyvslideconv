@@ -285,17 +285,16 @@ bool Jpg::read(int x, int y, int width, int height, bool passedGrayscale)
     std::cerr << "In jpeg::read parameters out of bounds." << std::endl;
     return false;
   }
-  std::cerr << " x=" << x << " width=" << width << std::endl;
-
   if (x+width > mactualWidth)
   {
     width = mactualWidth - x;
-    std::cerr << "In jpeg::read, width truncated." << std::endl;
+    std::cerr << "In jpeg::read, width truncated. Actual width=" << mactualWidth;
+    std::cerr << " x=" << x << " width=" << width << std::endl;
   }
   if (y+height > mactualHeight)
   {
     height = mactualHeight - y;
-    std::cerr << "In jpeg::read, height truncated." << " Actual height=" << mactualHeight;
+    std::cerr << "In jpeg::read, height truncated. Actual height=" << mactualHeight;
     std::cerr << " y=" << y << " height=" << height << std::endl;
   }
   int samplesPerPixel=3;

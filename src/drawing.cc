@@ -15,7 +15,7 @@ bool CompositeSlide::drawBorder(BYTE *pBmp, int samplesPerPixel, int64_t x, int6
   int srcLevel=-1;
   for (int curLevel=level-1; curLevel>=0 && srcLevel==-1; curLevel--)
   {
-    if (mConf[curLevel]->mfound)
+    if (mConf[curLevel]->mFound)
     {
       srcLevel=curLevel;
     }

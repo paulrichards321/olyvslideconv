@@ -272,8 +272,8 @@ typedef struct slidelevel_t
   cv::Mat *pImgScaled;
   cv::Mat *pImgScaledL2Mini;
 #else
-  Magick::Image *pImgScaled;
-  Magick::Image *pImgScaledL2Mini;
+  safeBmp *pImgScaled;
+  safeBmp *pImgScaledL2Mini;
   Magick::MagickWand *magickWand;
   Magick::PixelWand *pixelWand;
 #endif
@@ -321,7 +321,6 @@ protected:
   int64_t mTotalXSections, mTotalYSections;
   BlendSection **mxSubSections;
   BlendSection **mySubSections;
-  int mDefaultWidth, mDefaultHeight;
 public:
   #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) || defined(__MINGW__)
   static const char mPathSeparator='\\';
@@ -399,8 +398,6 @@ SlideConvertor::SlideConvertor()
   mTotalYSections = 0;
   mxSubSections = NULL;
   mySubSections = NULL;
-  mDefaultWidth = 752;
-  mDefaultHeight = 480;
   mOrientation = 0;
 }
 
@@ -429,6 +426,8 @@ void SlideConvertor::tileCleanup(SlideLevel &l)
     #ifndef USE_MAGICK
     l.pImgScaled->release();
     delete l.pImgScaled;
+    #else
+    safeBmpFree(l.pImgScaled);
     #endif
     l.pImgScaled = 0;
   }
@@ -437,6 +436,8 @@ void SlideConvertor::tileCleanup(SlideLevel &l)
     #ifndef USE_MAGICK
     l.pImgScaledL2Mini->release();
     delete l.pImgScaledL2Mini;
+    #else
+    safeBmpFree(l.pImgScaledL2Mini);
     #endif
     l.pImgScaledL2Mini = 0;
   }
@@ -516,11 +517,12 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   Magick::MagickSetImageType(l.magickWand, Magick::TrueColorType);
   Magick::MagickSetImageDepth(l.magickWand, 8);
   Magick::MagickSetImageAlphaChannel(l.magickWand, Magick::OffAlphaChannel);
-  //Magick::MagickNewImage(l.magickWand, l.grabWidthL2, l.grabHeightL2, l.pixelWand);
-  //Magick::MagickImportImagePixels(l.magickWand, 0, 0, l.grabWidthL2, l.grabHeightL2, "RGB", Magick::CharPixel, bitmapL2Mini.data);
-  Magick::MagickConstituteImage(l.magickWand, l.grabWidthL2, l.grabHeightL2, "RGB", Magick::CharPixel, bitmapL2Mini.data);
+  Magick::MagickNewImage(l.magickWand, l.grabWidthL2, l.grabHeightL2, l.pixelWand);
+  Magick::MagickImportImagePixels(l.magickWand, 0, 0, l.grabWidthL2, l.grabHeightL2, "RGB", Magick::CharPixel, bitmapL2Mini.data);
+  //Magick::MagickConstituteImage(l.magickWand, l.grabWidthL2, l.grabHeightL2, "RGB", Magick::CharPixel, bitmapL2Mini.data);
   Magick::MagickResizeImage(l.magickWand, l.finalOutputWidth, l.finalOutputHeight, l.scaleMethodL2);
-  safeBmpAlloc2(&l.safeScaledL2Mini, l.finalOutputWidth, l.finalOutputHeight);
+  l.pImgScaledL2Mini = safeBmpAlloc(l.finalOutputWidth, l.finalOutputHeight);
+  safeBmpInit(&l.safeScaledL2Mini, l.pImgScaledL2Mini->data, l.finalOutputWidth, l.finalOutputHeight);
   Magick::MagickExportImagePixels(l.magickWand, 0, 0, l.finalOutputWidth, l.finalOutputHeight, "RGB", Magick::CharPixel, l.safeScaledL2Mini.data);
   Magick::ClearMagickWand(l.magickWand);
   #endif
@@ -628,11 +630,12 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     Magick::MagickSetImageType(l.magickWand, Magick::TrueColorType);
     Magick::MagickSetImageDepth(l.magickWand, 8);
     Magick::MagickSetImageAlphaChannel(l.magickWand, Magick::OffAlphaChannel);
-    //Magick::MagickNewImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, l.pixelWand);
-    //Magick::MagickImportImagePixels(l.magickWand, 0, 0, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
-    Magick::MagickConstituteImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
+    Magick::MagickNewImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, l.pixelWand);
+    Magick::MagickImportImagePixels(l.magickWand, 0, 0, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
+    //Magick::MagickConstituteImage(l.magickWand, l.grabWidthRead, l.grabHeightRead, "RGB", Magick::CharPixel, l.pBitmapSrc->data);
     Magick::MagickResizeImage(l.magickWand, l.inputSubTileWidthRead, l.inputSubTileHeightRead, l.scaleMethod);
-    safeBmpAlloc2(&l.safeImgScaled, l.inputSubTileWidthRead, l.inputSubTileHeightRead);
+    l.pImgScaled = safeBmpAlloc(l.inputSubTileWidthRead, l.inputSubTileHeightRead);
+    safeBmpInit(&l.safeImgScaled, l.pImgScaled->data, l.inputSubTileWidthRead, l.inputSubTileHeightRead);
     Magick::MagickExportImagePixels(l.magickWand, 0, 0, l.inputSubTileWidthRead, l.inputSubTileHeightRead, "RGB", Magick::CharPixel, l.safeImgScaled.data);
     //safeBmpInit(&l.safeImgScaled, (BYTE*) QueueAuthenticPixels(l.pImgScaled, 0, 0, l.inputTileWidthRead, l.inputTileHeightRead, NULL), l.inputTileWidthRead, l.inputTileHeightRead);  
     Magick::ClearMagickWand(l.magickWand);
@@ -773,17 +776,19 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     l.scanBkgd = false;
   }
+  int defaultWidth, defaultHeight; 
   if (mOrientation == 90 || mOrientation == -90 || mOrientation == 270)
   {
-    mDefaultWidth = 480;
-    mDefaultHeight = 752;
+    defaultWidth = slide->getPixelHeight(olympusLevel);
+    defaultHeight = slide->getPixelWidth(olympusLevel);
   }
   else
   {
-    mDefaultWidth = 752;
-    mDefaultHeight = 480;
+    defaultWidth = slide->getPixelWidth(olympusLevel);
+    defaultHeight = slide->getPixelHeight(olympusLevel);
   }
- 
+  std::cout << "Default Width=" << defaultWidth << " Default Height=" << defaultHeight << std::endl;
+
   l.fillin = (mOptBlend && l.scanBkgd==false && l.olympusLevel < 2) ? true : false;
 
   l.srcTotalWidth = slide->getActualWidth(olympusLevel);
@@ -881,23 +886,22 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   {
     l.xBlendFactor = l.magnifyX; 
     l.yBlendFactor = l.magnifyY;
-    //l.xBkgdLimit = mDefaultWidth;
-    int64_t minDimen = (mDefaultWidth > mDefaultHeight ? mDefaultHeight : mDefaultWidth);
+    int minDimen = (defaultWidth > defaultHeight ? defaultHeight : defaultWidth);
     
     l.xBkgdLimit = minDimen;
     l.yBkgdLimit = minDimen;
     if (l.scanBkgd)
     {
-      l.inputTileWidth = mDefaultWidth;
-      l.inputTileHeight = mDefaultHeight;
-      l.grabWidthA = mDefaultWidth;
-      l.grabHeightA = mDefaultHeight;
-      l.grabWidthB = mDefaultWidth;
-      l.grabHeightB = mDefaultHeight;
-      l.finalOutputWidth = mDefaultWidth;
-      l.finalOutputHeight = mDefaultHeight;
-      l.finalOutputWidth2 = mDefaultWidth;
-      l.finalOutputHeight2 = mDefaultHeight;
+      l.inputTileWidth = defaultWidth;
+      l.inputTileHeight = defaultHeight;
+      l.grabWidthA = defaultWidth;
+      l.grabHeightA = defaultHeight;
+      l.grabWidthB = defaultWidth;
+      l.grabHeightB = defaultHeight;
+      l.finalOutputWidth = defaultWidth;
+      l.finalOutputHeight = defaultHeight;
+      l.finalOutputWidth2 = defaultWidth;
+      l.finalOutputHeight2 = defaultHeight;
     }
   }
   else
@@ -1253,6 +1257,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
               #ifndef USE_MAGICK
               l.pImgScaled->release();
               delete l.pImgScaled;
+              #else
+              safeBmpFree(l.pImgScaled);
               #endif
               l.pImgScaled = 0;
               safeBmpFree(&l.subTileBitmap);
@@ -1659,7 +1665,8 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, int opti
       std::cerr << "Failed to create zip file '" << outputFile << "'. Reason: " << mZip->getErrorMsg() << std::endl;
       return 2;
     }
-    mZip->setCompression(MZ_COMPRESS_METHOD_STORE, MZ_COMPRESS_LEVEL_DEFAULT);
+    mZip->setCompression(OLY_DEFAULT_COMPRESS_METHOD, OLY_DEFAULT_COMPRESS_LEVEL);
+
     mCenter = true;
   }
   else
@@ -1758,8 +1765,6 @@ void SlideConvertor::closeRelated()
   mBaseTotalWidth=0;
   mBaseTotalHeight=0;
 }
-
-
 
 
 int main(int argc, char** argv)
@@ -2014,23 +2019,24 @@ SLIDE_DEFAULT_REGION ".\n"
     optMaxJpegCache = 1;
   }
 
+  if (allOptions & CONV_GOOGLE)
+  {
+    std::cout << "Output format: Google Maps Zipped" << std::endl;
+  }
+  if (allOptions & CONV_TIF)
+  {
+    std::cout << "Output format: TIFF/SVS" << std::endl;
+  }
+  if (optSpin != 0)
+  {
+    std::cout << "Slide Orientation: " << optSpin << " degrees" << std::endl;
+  }  
+
   if (optDebug > 0)
   {
-    if (allOptions & CONV_GOOGLE)
-    {
-      std::cout << "Output format: Google Maps Zipped" << std::endl;
-    }
-    if (allOptions & CONV_TIF)
-    {
-      std::cout << "Output format: TIFF/SVS" << std::endl;
-    }
     if (optSpin == 0)
     {
       std::cout << "Slide Orientation: Normal" << std::endl;
-    }
-    else
-    {
-      std::cout << "Slide Orientation: " << optSpin << " degrees" << std::endl;
     }
     std::cout << "Set logging: " << boolInt2Txt(allOptions & CONV_LOG) << std::endl;
     std::cout << "Set debug level: " << optDebug << std::endl;

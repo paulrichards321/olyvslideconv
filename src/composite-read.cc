@@ -170,7 +170,7 @@ bool CompositeSlide::read(int64_t x, int64_t y, int64_t width, int64_t height, b
 
 bool CompositeSlide::allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale)
 {
-  if (mValidObject==false || level<0 || level > (int64_t) mConf.size() || mConf[level]->mfound==false)
+  if (mValidObject==false || level<0 || level > (int64_t) mConf.size() || mConf[level]->mFound==false)
   {
     return false;
   }

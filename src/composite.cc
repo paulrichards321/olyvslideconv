@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <memory>
 #include <stdexcept>
 #include <fstream>
+#include <sstream>
 #include <cstring>
 #include <cstdlib>
 #include <iostream>
@@ -64,7 +65,7 @@ CompositeSlide::CompositeSlide()
 IniConf::IniConf()
 {
   mname="";
-  mfound=false;
+  mFound=false;
   mxMin=0;
   mxMax=0;
   mxDiffMin=0;
@@ -96,7 +97,7 @@ IniConf::IniConf()
 
 bool CompositeSlide::isPreviewSlide(size_t level)
 {
-  if (level < mConf.size() && mConf[level]->mfound) 
+  if (level < mConf.size() && mConf[level]->mFound) 
   {
     return mConf[level]->mIsPreviewSlide; 
   }
@@ -106,7 +107,7 @@ bool CompositeSlide::isPreviewSlide(size_t level)
 
 bool CompositeSlide::checkZLevel(int level, int direction, int zLevel)
 {
-  return (mValidObject == true && level >= 0 && level < (int) mConf.size() && direction >= 0 && direction < 3 && mConf[level]->mfound && (direction==0 || mConf[level]->mzStackExists[direction-1][zLevel])) ? true : false; 
+  return (mValidObject == true && level >= 0 && level < (int) mConf.size() && direction >= 0 && direction < 3 && mConf[level]->mFound && (direction==0 || mConf[level]->mzStackExists[direction-1][zLevel])) ? true : false; 
 }
 
 
@@ -165,7 +166,7 @@ void CompositeSlide::close()
 
 bool CompositeSlide::checkLevel(int level)
 {
-  if (mValidObject == false || level < 0 || level > (int) mConf.size() || mConf[level]->mfound == false || mConf[level]->mKnowStepSizes == false) 
+  if (mValidObject == false || level < 0 || level > (int) mConf.size() || mConf[level]->mFound == false || mConf[level]->mKnowStepSizes == false) 
   {
     return false;
   }
@@ -200,6 +201,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   mOrientation = orientation;
   mOptBorder=options & CONV_HIGHLIGHT; 
   int optOpenCVAlign=options & CONV_OPENCV_ALIGN;
+  int optUseCustomOffset = options & (CONV_CUSTOM_XOFFSET | CONV_CUSTOM_YOFFSET);
   mBestXOffset = bestXOffset;
   mBestYOffset = bestYOffset;
 
@@ -473,7 +475,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
       }
     }
     if (optDebug > 1) logFile << "fileName=" << pConf->mname << " jpgWidth=" << pConf->mPixelWidth << " jpgHeight=" << pConf->mPixelHeight << std::endl;
-    pConf->mfound = true;
+    pConf->mFound = true;
     
     //************************************************************************
     // Get the xmin and xmax values
@@ -518,7 +520,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     }
     else
     {
-      if (fileNum>0 && mConf[fileNum-1]->mfound && mConf[fileNum-1]->mxStepSize>0)
+      if (fileNum>0 && mConf[fileNum-1]->mFound && mConf[fileNum-1]->mxStepSize>0)
       {
         pConf->mxStepSize = mConf[fileNum-1]->mxStepSize*4;
         pConf->mxKnowStepSize = true;
@@ -552,7 +554,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     }
     else
     {
-      if (fileNum>0 && mConf[fileNum-1]->mfound && mConf[fileNum-1]->myStepSize>0)
+      if (fileNum>0 && mConf[fileNum-1]->mFound && mConf[fileNum-1]->myStepSize>0)
       {
         pConf->myStepSize = (double) (mConf[fileNum-1]->myStepSize*4);
         pConf->myKnowStepSize = true;
@@ -635,7 +637,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   bool iniSortByAdj=true;
   for (int i=0; i<4; i++)
   {
-    if (mConf[i]->mfound==false || mConf[i]->mxAdj==0 || mConf[i]->myAdj==0)
+    if (mConf[i]->mFound==false || mConf[i]->mxAdj==0 || mConf[i]->myAdj==0)
     {
       iniSortByAdj=false;
     }
@@ -707,7 +709,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   int level=-1;
   for (int min=3; min>=0; min--)
   {
-    if (mConf[min]->mfound==true && mConf[min]->mKnowStepSizes==true)
+    if (mConf[min]->mFound==true && mConf[min]->mKnowStepSizes==true)
     {
       level=min;
       break;
@@ -727,34 +729,34 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   double multiX[3] = { 1.0, 1.0, 1.0 };
   double multiY[3] = { 1.0, 1.0, 1.0 };
   
-  if (mConf[3]->mfound && mConf[2]->mfound)
+  if (mConf[3]->mFound && mConf[2]->mFound)
   {
     multiX[2] = mConf[2]->mxAdj / mConf[3]->mxAdj;
     multiY[2] = mConf[2]->myAdj / mConf[3]->myAdj;
   }
-  if (mConf[2]->mfound && mConf[1]->mfound)
+  if (mConf[2]->mFound && mConf[1]->mFound)
   {
     multiX[1] = mConf[2]->mxAdj / mConf[1]->mxAdj;
     multiY[1] = mConf[2]->myAdj / mConf[1]->myAdj;
   }
-  else if (mConf[3]->mfound && mConf[1]->mfound)
+  else if (mConf[3]->mFound && mConf[1]->mFound)
   {
     multiX[1] = mConf[3]->mxAdj / mConf[1]->mxAdj;
     multiY[1] = mConf[3]->myAdj / mConf[1]->myAdj;
   }
-  if (mConf[0]->mfound)
+  if (mConf[0]->mFound)
   {
-    if (mConf[2]->mfound)
+    if (mConf[2]->mFound)
     {
       multiX[0] = mConf[2]->mxAdj / mConf[0]->mxAdj;
       multiY[0] = mConf[2]->myAdj / mConf[0]->myAdj;
     }
-    else if (mConf[3]->mfound)
+    else if (mConf[3]->mFound)
     {
       multiX[0] = mConf[3]->mxAdj / mConf[0]->mxAdj;
       multiY[0] = mConf[3]->myAdj / mConf[0]->myAdj;
     }
-    else if (mConf[1]->mfound)
+    else if (mConf[1]->mFound)
     {
       multiX[0] = mConf[1]->mxAdj / mConf[0]->mxAdj;
       multiY[0] = mConf[1]->myAdj / mConf[0]->myAdj;
@@ -763,10 +765,10 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   
   /*
   int highestLvl;
-  for (highestLvl = 3; highestLvl >= 1 && (mConf[highestLvl]->mfound==false || mConf[highestLvl]->mKnowStepSizes==false); highestLvl--);
+  for (highestLvl = 3; highestLvl >= 1 && (mConf[highestLvl]->mFound==false || mConf[highestLvl]->mKnowStepSizes==false); highestLvl--);
   */
 
-  if (mConf[2]->mfound && mConf[2]->mKnowStepSizes)
+  if (mConf[2]->mFound && mConf[2]->mKnowStepSizes)
   {
     mConf[2]->mTotalWidth = (double)(mConf[2]->mxMax - (mConf[2]->mxMin - mConf[2]->mxStepSize)) / (double) mConf[2]->mxAdj;
     mConf[2]->mTotalHeight = (double)(mConf[2]->myMax - (mConf[2]->myMin - mConf[2]->myStepSize)) / (double) mConf[2]->myAdj;
@@ -780,7 +782,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     mConf[0]->mTotalWidth = mConf[2]->mTotalWidth * multiX[0];
     mConf[0]->mTotalHeight = mConf[2]->mTotalHeight * multiY[0];
   }
-  else if (mConf[3]->mfound && mConf[3]->mKnowStepSizes)
+  else if (mConf[3]->mFound && mConf[3]->mKnowStepSizes)
   {
     mConf[3]->mTotalWidth = (double)(mConf[3]->mxMax - (mConf[3]->mxMin - mConf[3]->mxStepSize)) / (double) mConf[3]->mxAdj;
     mConf[3]->mTotalHeight = (double)(mConf[3]->myMax - (mConf[3]->myMin - mConf[3]->myStepSize)) / (double) mConf[3]->myAdj;
@@ -790,7 +792,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     mConf[0]->mTotalWidth = mConf[3]->mTotalWidth * multiX[0];
     mConf[0]->mTotalHeight = mConf[3]->mTotalHeight * multiY[0];
   }
-  else if (mConf[1]->mfound && mConf[1]->mKnowStepSizes)
+  else if (mConf[1]->mFound && mConf[1]->mKnowStepSizes)
   {
     mConf[1]->mTotalWidth = (double)(mConf[1]->mxMax - (mConf[1]->mxMin - mConf[1]->mxStepSize)) / (double) mConf[1]->mxAdj;
     mConf[1]->mTotalHeight = (double)(mConf[1]->myMax - (mConf[1]->myMin - mConf[1]->myStepSize)) / (double) mConf[1]->myAdj;
@@ -818,27 +820,25 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   int higherLevel = -1;
   int lowerLevel = -1;
   bool higherLevelFound = false, lowerLevelFound = false;
-  //double higherLevelXDiv, higherLevelYDiv;
-  //int64_t zoomedXDetail, zoomedYDetail;
-  if (mConf[2]->mfound && mConf[2]->mKnowStepSizes)
+  if (mConf[2]->mFound && mConf[2]->mKnowStepSizes)
   {
     pHigherConf = mConf[2];
     higherLevelFound = true;
     higherLevel = 2;
   }
-  else if (mConf[3]->mfound && mConf[3]->mKnowStepSizes)
+  else if (mConf[3]->mFound && mConf[3]->mKnowStepSizes)
   {
     pHigherConf = mConf[3];
     higherLevelFound = true;
     higherLevel = 3;
   }
-  if (mConf[0]->mfound)
+  if (mConf[0]->mFound)
   {
     pLowerConf = mConf[0];
     lowerLevel = 0;
     lowerLevelFound = true;
   }
-  else if (mConf[1]->mfound)
+  if (mConf[1]->mFound)
   {
     pLowerConf = mConf[1];
     lowerLevel = 1;
@@ -850,7 +850,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   for (int fileNum=2; fileNum<4; fileNum++)
   {
     IniConf* pConf=mConf[fileNum];
-    if (pConf->mfound==false) continue;
+    if (pConf->mFound==false) continue;
      
     for (int64_t i=0; i<pConf->mTotalTiles; i++)
     {
@@ -887,7 +887,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   #ifndef USE_MAGICK
   if (lowerLevelFound && higherLevelFound && optOpenCVAlign)
   {
-    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, ptpImageL2, optDebug, logFile);
+    findXYOffset(lowerLevel, higherLevel, &bestXOffsetL0, &bestYOffsetL0, &bestXOffsetL1, &bestYOffsetL1, optUseCustomOffset, optDebug, logFile);
   }
   #endif
   if (lowerLevelFound && higherLevelFound && optOpenCVAlign==false)
@@ -898,7 +898,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     double higherMinBaseX = pLowerConf->mxAxis - pHigherConf->mxMax;
     double higherMinBaseY = pLowerConf->myAxis - pHigherConf->myMax;
 
-    if (mConf[0]->mfound)
+    if (mConf[0]->mFound)
     {
       double ratioAL0X = (double) mConf[0]->mPixelWidth / (double) mConf[0]->mxStepSize;
       double ratioAL0Y = (double) mConf[0]->mPixelHeight / (double) mConf[0]->myStepSize;
@@ -920,7 +920,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
       bestXOffsetL0 = (int64_t) floor(lowerMinBaseL0X * ratioAL0X - minusL0X);
       bestYOffsetL0 = (int64_t) floor(lowerMinBaseL0Y * ratioAL0Y - minusL0Y);
     }
-    if (mConf[1]->mfound)
+    if (mConf[1]->mFound)
     {
       double ratioAL1X = (double) mConf[1]->mPixelWidth / (double) mConf[1]->mxStepSize;
       double ratioAL1Y = (double) mConf[1]->mPixelHeight / (double) mConf[1]->myStepSize;
@@ -956,7 +956,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   for (int fileNum=0; fileNum<2; fileNum++)
   {
     IniConf* pConf=mConf[fileNum];
-    if (pConf->mfound==false) continue;
+    if (pConf->mFound==false) continue;
     pConf->mxSortedArr.resize(pConf->mxyArr.size());
 
     for (int64_t i=0; i<pConf->mTotalTiles; i++)
@@ -1002,12 +1002,12 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   //*****************************************************************
   if (orientation != 0) 
   {
-    setOrientation(orientation);
+    setOrientation(orientation, logFile);
   }
   
-  if (lowerLevelFound && higherLevelFound && optOpenCVAlign==false)
+  if (higherLevelFound)
   {
-    loadL2Image(lowerLevel, higherLevel, ptpImageL2, orientation, optDebug, logFile);
+    loadFullImage(higherLevel, ptpImageL2, NULL, orientation, 1.0, 1.0, false, optDebug, logFile);
   }
   mbaseWidth = mConf[0]->mTotalWidth;
   mbaseHeight = mConf[0]->mTotalHeight;
@@ -1027,7 +1027,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     jpgxy.myPixel=0;
     jpgxy.mx=0.0;
     jpgxy.my=0.0;
-    previewConf->mfound = true;
+    previewConf->mFound = true;
     previewConf->mxyArr.push_back(jpgxy);
     previewConf->mIsPreviewSlide = true;
     mConf.push_back(previewConf);
@@ -1041,114 +1041,52 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
   return true;
 }
 
-
-
-
 #ifndef USE_MAGICK
-bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **ptpImageL2, int optDebug, std::fstream& logFile)
+bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, int optUseCustomOffset, int optDebug, std::fstream& logFile)
 {
-  if (ptpImageL2 == NULL) return false;
-  *ptpImageL2 = NULL;
-  
   double xMulti0 = mConf[2]->mxAdj / mConf[0]->mxAdj;
   double yMulti0 = mConf[2]->myAdj / mConf[0]->myAdj;
   double xMulti1 = mConf[2]->mxAdj / mConf[1]->mxAdj;
   double yMulti1 = mConf[2]->myAdj / mConf[1]->myAdj;
   IniConf *pLowerConf = mConf[lowerLevel];
   IniConf *pHigherConf = mConf[higherLevel];
+  if (pLowerConf->mFound == false || pHigherConf->mFound == false)
+  {
+    return false;
+  }
   double xZoomOut = pHigherConf->mxAdj / pLowerConf->mxAdj;
   double yZoomOut = pHigherConf->myAdj / pLowerConf->myAdj;
-  int64_t simulatedWidth = (int64_t) lround((double)pLowerConf->mDetailedWidth / xZoomOut);
-  int64_t simulatedHeight = (int64_t) lround((double)pLowerConf->mDetailedHeight / yZoomOut);
-  if (optDebug > 1) logFile << "simulatedWidth=" << simulatedWidth << " simulatedHeight=" << simulatedHeight << std::endl;
-  
-  cv::Mat* pImgComplete1 = new cv::Mat(simulatedHeight, simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  if (optDebug > 1) logFile << "Reading level " << lowerLevel << " and scaling..." << std::endl;
-  std::cout << "Reading level " << lowerLevel << " and scaling..." << std::endl;
-  for (int64_t i=0; i<pLowerConf->mTotalTiles; i++)
-  {
-    cv::Mat imgPart = cv::imread(pLowerConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
-    if (imgPart.total()>0)
-    {
-      //************************************************************
-      // Find the left and right borders
-      //************************************************************
-      cv::Size scaledSize((int64_t)lround(imgPart.cols / xZoomOut), (int64_t)lround(imgPart.rows / yZoomOut));
-      cv::Mat imgScaled((int64_t)scaledSize.width, (int64_t)scaledSize.height, CV_8UC3, cv::Scalar(255,255,255));
-      cv::resize(imgPart, imgScaled, scaledSize);
 
-      double xPixel=((double)((double)(pLowerConf->mxMax - pLowerConf->mxyArr[i].mx)/pLowerConf->mxAdj)/xZoomOut);
-      double yPixel=((double)((double)(pLowerConf->myMax - pLowerConf->mxyArr[i].my)/pLowerConf->myAdj)/yZoomOut);
-      int64_t xPixelInt = (int64_t) round(xPixel);
-      //if (xPixelInt > 0) xPixelInt--;
-      int64_t yPixelInt = (int64_t) round(yPixel);
-      //if (yPixelInt > 0) yPixelInt--;
-      int64_t cols = imgScaled.cols;
-      if (xPixelInt + cols > pImgComplete1->cols)
-      {
-        cols -= (xPixelInt + cols) - pImgComplete1->cols;
-      }
-      int64_t rows = imgScaled.rows;
-      if (yPixelInt + rows > pImgComplete1->rows)
-      {
-        rows -= (yPixelInt + rows) - pImgComplete1->rows;
-      }
-      if (cols > 0 && rows > 0)
-      {
-        cv::Rect roi(0, 0, cols, rows);
-        cv::Mat srcRoi(imgScaled, roi);
-        cv::Rect roi2(xPixelInt, yPixelInt, cols, rows);
-        cv::Mat destRoi(*pImgComplete1, roi2); 
-        srcRoi.copyTo(destRoi);
-        srcRoi.release();
-        destRoi.release();
-      }
-      else
-      {
-        std::cerr << "Warning: ROI outside of image boundaries: xPixel: " << xPixelInt << " width: " << scaledSize.width << " > " << pImgComplete1->cols;
-        std::cerr << " yPixel: " << yPixelInt << " height: " << scaledSize.height << " > " << pImgComplete1->rows << std::endl;
-      }
-    }
-    imgPart.release();
+  cv::Mat *pImgComplete1 = NULL;
+  cv::Mat *pImgComplete2 = NULL;
+  if (optDebug > 1) 
+  {
+    logFile << "Reading Olympus level " << lowerLevel << " and scaling..." << std::endl;
+  }
+  bool success = loadFullImage(lowerLevel, NULL, &pImgComplete1, 0, xZoomOut, yZoomOut, true, optDebug, logFile);
+  if (success == false)
+  {
+    std::cerr << "Warning! Failed to load lower Olympus level " << lowerLevel << ". Cannot use image matching to determine X and Y Offsets between the higher and lower levels!" << std::endl;
+    return false;
   }
 
-  cv::Mat *pImgComplete2 = new cv::Mat((int64_t)pHigherConf->mDetailedHeight, (int64_t)pHigherConf->mDetailedWidth, CV_8UC3, cv::Scalar(255,255,255));
-  if (optDebug > 1) logFile << "Reading level " << higherLevel << " and scaling." << std::endl;
-  for (int64_t i=0; i<pHigherConf->mTotalTiles; i++)
+  if (optDebug > 1) 
   {
-    cv::Mat imgPart = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
-    double xPixel=((double)(pHigherConf->mxMax - pHigherConf->mxyArr[i].mx)/(double)pHigherConf->mxAdj);
-    double yPixel=((double)(pHigherConf->myMax - pHigherConf->mxyArr[i].my)/(double)pHigherConf->myAdj);
-    int64_t xPixelInt = (int64_t) round(xPixel);
-    //if (xPixelInt > 0) xPixelInt--;
-    int64_t yPixelInt = (int64_t) round(yPixel);
-    //if (yPixelInt > 0) yPixelInt--;
-    int64_t cols = imgPart.cols;
-    if (xPixelInt + cols > pImgComplete2->cols)
+    logFile << "Reading Olympus level " << higherLevel << "..." << std::endl;
+  }
+  success = loadFullImage(higherLevel, NULL, &pImgComplete2, 0, 1.0, 1.0, false, optDebug, logFile);
+  if (success == false)
+  {   
+    std::cerr << "Warning! Failed to load higher Olympus level " << lowerLevel << ". Cannot use image matching to determine X and Y Offsets between the higher and lower levels!" << std::endl;
+    if (pImgComplete1)
     {
-      cols -= (xPixelInt + cols) - pImgComplete2->cols;
+      if (pImgComplete1->data)
+      {
+        pImgComplete1->release();
+      }
+      delete pImgComplete1;
     }
-    int64_t rows = imgPart.rows;
-    if (yPixelInt + rows > pImgComplete2->rows)
-    {
-      rows -= (yPixelInt + rows) - pImgComplete2->rows;
-    }
-    if (cols > 0 && rows > 0)
-    {
-      cv::Rect roi(0, 0, cols, rows);
-      cv::Mat srcRoi(imgPart, roi);
-      cv::Rect roi2(xPixelInt, yPixelInt, cols, rows);
-      cv::Mat destRoi(*pImgComplete2, roi2); 
-      srcRoi.copyTo(destRoi);
-      srcRoi.release();
-      destRoi.release();
-    }
-    else
-    {
-      std::cerr << "Warning: ROI outside of image boundaries: xPixel: " << xPixelInt << " width: " << imgPart.cols << " > " << pImgComplete2->cols;
-      std::cerr << " yPixel: " << yPixelInt << " height: " << imgPart.rows << " > " << pImgComplete2->rows << std::endl;
-    }
-    imgPart.release();
+    return false;
   }
   //------------------------------------------------------------------------
   // AKAZE
@@ -1163,41 +1101,26 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
 
   std::cout << "Running descriptor matcher..." << std::endl;
   cv::BFMatcher bfMatcher(cv::NORM_HAMMING);
-//    std::vector<std::vector<cv::DMatch> > nn_matches;
-//    matcher.knnMatch(descriptors1, descriptors2, nn_matches, 2);
   std::vector<cv::DMatch> matches;
   bfMatcher.match(descriptors1, descriptors2, matches);
 
-  //std::vector< cv::DMatch > good_matches2;
-  //std::vector< cv::KeyPoint > matched1, matched2;
-  
-  //double nn_match_ratio = 0.8;
-  if (optDebug > 1)
-  {
-    if (pImgComplete1 && pImgComplete1->data)
-      cv::imwrite("imgComplete1.jpg", *pImgComplete1);
-    if (pImgComplete2 && pImgComplete2->data)
-      cv::imwrite("imgComplete2.jpg", *pImgComplete2);
-  }
   if (pImgComplete1)
   {
     if (pImgComplete1->data)
+    {
       pImgComplete1->release();
+    }
     delete pImgComplete1;
-  }
-  if (pImgComplete2 && pImgComplete2->data)
-  {
-    safeBmp *pImageL2 = safeBmpAlloc(pHigherConf->mDetailedWidth, pHigherConf->mDetailedHeight);
-    *ptpImageL2 = pImageL2; 
-    safeBmp safeImgComplete2Ref;
-    safeBmpInit(&safeImgComplete2Ref, pImgComplete2->data, pHigherConf->mDetailedWidth, pHigherConf->mDetailedHeight);
-    safeBmpBGRtoRGBCpy(pImageL2, &safeImgComplete2Ref);
-    pImgComplete2->release();
-    safeBmpFree(&safeImgComplete2Ref);
+    pImgComplete1 = NULL;
   }
   if (pImgComplete2)
   {
+    if (pImgComplete2->data)
+    {
+      pImgComplete2->release();
+    }
     delete pImgComplete2;
+    pImgComplete2 = NULL;
   }
  
   std::vector<double> diffXs;
@@ -1211,15 +1134,15 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     diffYs.push_back(diffY);
   }
   int64_t bestXOffset, bestYOffset;
-  if (mBestXOffset>=0 && mBestYOffset>=0)
+  if (optUseCustomOffset)
   {
     bestXOffset = mBestXOffset;
     bestYOffset = mBestYOffset;
   }
   else if (diffXs.size()>0)
   {
-    bestXOffset = diffXs[0];
-    bestYOffset = diffYs[0];
+    bestXOffset = (int64_t) lround(diffXs[0]);
+    bestYOffset = (int64_t) lround(diffYs[0]);
   }
   else
   {
@@ -1229,7 +1152,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
   if (optDebug > 1)
   {
     logFile << "Diff X Vector Size: " << diffXs.size() << std::endl;
-    logFile << "Best (First in sorted arrays) X, Y alignment: " << bestXOffset << " " << bestYOffset << std::endl;
+    logFile << "Best (Usually first in sorted arrays unless you set custom offsets) X, Y alignment: " << bestXOffset << " " << bestYOffset << std::endl;
     logFile << "Alignment array: " << std::endl;
     for (uint64_t i=0; i<diffXs.size(); i++)
     {
@@ -1248,7 +1171,7 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
 #endif
 
 
-bool CompositeSlide::setOrientation(int orientation)
+bool CompositeSlide::setOrientation(int orientation, std::fstream& logFile)
 {
   mOrientation = 0;
   
@@ -1264,11 +1187,6 @@ bool CompositeSlide::setOrientation(int orientation)
     default:
       return false;
   }
-  std::fstream logFile;
-  if (mOptDebug > 1)
-  {
-    logFile.open("SlideScan.openimage.log", std::ios::out);
-  }
   mOrientation = orientation;
 
   //*****************************************************************
@@ -1278,7 +1196,7 @@ bool CompositeSlide::setOrientation(int orientation)
   for (int fileNum=0; fileNum<4; fileNum++)
   {
     IniConf* pConf=mConf[fileNum];
-    if (pConf->mfound==false) continue;
+    if (pConf->mFound==false) continue;
 
     int64_t totalTiles = pConf->mTotalTiles;
     int64_t totalWidth = pConf->mTotalWidth;
@@ -1291,11 +1209,11 @@ bool CompositeSlide::setOrientation(int orientation)
     {
       int64_t xPixel=pConf->mxyArr[i].mxPixel;
       int64_t yPixel=pConf->mxyArr[i].myPixel;
-      int64_t xPixelNew, yPixelNew;
+      int64_t xPixelNew = xPixel;
+      int64_t yPixelNew = yPixel;
       if (orientation == 0)
       {
-        xPixelNew = xPixel;
-        yPixelNew = yPixel;
+        // place holder
       }  
       else if (orientation == 90)
       {
@@ -1345,37 +1263,61 @@ bool CompositeSlide::setOrientation(int orientation)
       }
     }
   }
-  if (mOptDebug > 1) logFile.close();
   return true;
 }
 
 #ifndef USE_MAGICK
-bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, int orientation, int optDebug, std::fstream& logFile)
+bool CompositeSlide::loadFullImage(int level, safeBmp **ptpFullImage, cv::Mat **ptpMatImage, int orientation, double xZoomOut, double yZoomOut, bool useZoom, int optDebug, std::fstream& logFile)
 {
-  IniConf *pHigherConf = mConf[higherLevel];
+  IniConf *pConf = mConf[level];
   
-  if (ptpImageL2 == NULL) return false;
-  *ptpImageL2 = NULL;
-
-  int64_t detailedWidth = pHigherConf->mDetailedWidth;
-  int64_t detailedHeight = pHigherConf->mDetailedHeight;
-  int64_t orgDetailedWidth = pHigherConf->mOrgDetailedWidth;
-  int64_t orgDetailedHeight = pHigherConf->mOrgDetailedHeight;
-  cv::Mat *pImgComplete2 = new cv::Mat(detailedHeight, detailedWidth, CV_8UC3, cv::Scalar(255,255,255));
-
-  if (optDebug > 1) logFile << "Reading level " << higherLevel << "." << std::endl;
-  for (int64_t i=0; i<pHigherConf->mTotalTiles; i++)
+  if (ptpFullImage == NULL && ptpMatImage == NULL) 
   {
-    cv::Mat *imgPart;
-    cv::Mat imgPart1 = cv::imread(pHigherConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
+    return false;
+  }
+  if (pConf->mFound == false)
+  {
+    return false;
+  }
+
+  if (ptpFullImage)
+  {
+    *ptpFullImage = NULL;
+  }
+  if (ptpMatImage)
+  {
+    *ptpMatImage = NULL;
+  }
+
+  int64_t orgDetailedWidth = pConf->mOrgDetailedWidth;
+  int64_t orgDetailedHeight = pConf->mOrgDetailedHeight;
+  int64_t simulatedWidth = orgDetailedWidth; 
+  int64_t simulatedHeight = orgDetailedHeight;
+  if (useZoom)
+  {
+    simulatedWidth = (int64_t) lround((double) orgDetailedWidth / xZoomOut);
+    simulatedHeight = (int64_t) lround((double) orgDetailedHeight / yZoomOut);
+  }
+  if (orientation == 90 || orientation == -90 || orientation == 270)
+  {
+    int64_t simulatedHeightOld = simulatedHeight;
+    simulatedHeight = simulatedWidth;
+    simulatedWidth = simulatedHeightOld;
+  }
+ 
+  cv::Mat *pImgComplete = new cv::Mat(simulatedHeight, simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
+
+  for (int64_t i=0; i < pConf->mTotalTiles; i++)
+  {
+    cv::Mat imgPart1 = cv::imread(pConf->mxyArr[i].mBaseFileName, cv::IMREAD_COLOR); 
+    cv::Mat *imgPart = &imgPart1;
     int64_t orgCols = imgPart1.cols;
     int64_t orgRows = imgPart1.rows;
- 
     cv::Mat imgPart2, imgPart3;
+    cv::Mat* pImgScaled = NULL;
     switch (orientation)
     {
       case 0:
-        imgPart = &imgPart1;
         break;
       case 90:
         cv::transpose(imgPart1, imgPart2);
@@ -1397,23 +1339,26 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
         imgPart1.release();
         imgPart = &imgPart2;
         break;
-      default:
-        imgPart = &imgPart1;
-        break;
     }
-    double xPixelDbl=((double)(pHigherConf->mxMax - pHigherConf->mxyArr[i].mx)/(double)pHigherConf->mxAdj);
-    double yPixelDbl=((double)(pHigherConf->myMax - pHigherConf->mxyArr[i].my)/(double)pHigherConf->myAdj);
+    if (useZoom)
+    {
+      cv::Size scaledSize((int64_t)lround(imgPart->cols / xZoomOut), (int64_t)lround(imgPart->rows / yZoomOut));
+      pImgScaled = new cv::Mat((int64_t)scaledSize.width, (int64_t)scaledSize.height, CV_8UC3, cv::Scalar(255,255,255));
+      cv::resize(*imgPart, *pImgScaled, scaledSize);
+      imgPart->release();
+      imgPart = pImgScaled;
+    }
+    double xPixelDbl=((double)(pConf->mxMax - pConf->mxyArr[i].mx)/(double)pConf->mxAdj);
+    double yPixelDbl=((double)(pConf->myMax - pConf->mxyArr[i].my)/(double)pConf->myAdj);
     int64_t xPixel = (int64_t) round(xPixelDbl);
     int64_t yPixel = (int64_t) round(yPixelDbl);
-    std::cout << " xPixel=" << xPixel << " yPixel=" << yPixel << std::endl;
-
     int64_t cols = imgPart->cols;
     int64_t rows = imgPart->rows;
-    int64_t xPixelNew, yPixelNew;
+    int64_t xPixelNew = xPixel;
+    int64_t yPixelNew = yPixel;
     if (orientation == 0)
     {
-      xPixelNew = xPixel;
-      yPixelNew = yPixel;
+      // place holder, do nothing
     }  
     else if (orientation == 90)
     {
@@ -1430,59 +1375,91 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
       xPixelNew = (orgDetailedWidth - xPixel) - orgCols;
       yPixelNew = (orgDetailedHeight - yPixel) - orgRows;
     }
-    std::cout << " xPixelNew=" << xPixelNew << " imgPart->cols=" << cols << " pImgComplete2->cols=" << pImgComplete2->cols << std::endl;
-    if (xPixelNew + cols > pImgComplete2->cols)
+    if (useZoom)
     {
-      cols -= (xPixelNew + cols) - pImgComplete2->cols;
+      xPixelNew = (int64_t) lround(xPixelNew / xZoomOut);
+      yPixelNew = (int64_t) lround(yPixelNew / yZoomOut);
     }
-    std::cout << " yPixelNew=" << yPixelNew << " imgPart->rows=" << rows << " pImgComplete2->rows=" << pImgComplete2->rows << std::endl;
-    if (yPixelNew + rows > pImgComplete2->rows)
+    if (xPixelNew + cols > pImgComplete->cols)
     {
-      rows -= (yPixelNew + rows) - pImgComplete2->rows;
+      cols -= (xPixelNew + cols) - pImgComplete->cols;
+    }
+    if (yPixelNew + rows > pImgComplete->rows)
+    {
+      rows -= (yPixelNew + rows) - pImgComplete->rows;
     }
     if (cols > 0 && rows > 0)
     {
       cv::Rect roi(0, 0, cols, rows);
       cv::Mat srcRoi(*imgPart, roi);
       cv::Rect roi2(xPixelNew, yPixelNew, cols, rows);
-      cv::Mat destRoi(*pImgComplete2, roi2); 
+      cv::Mat destRoi(*pImgComplete, roi2); 
       srcRoi.copyTo(destRoi);
       srcRoi.release();
       destRoi.release();
     }
     else
     {
-      std::cerr << "Warning: ROI outside of image boundaries: xPixelNew=" << xPixelNew << " cols=" << cols << " > " << pImgComplete2->cols;
-      std::cerr << " yPixelNew=" << yPixelNew << " rows=" << rows << std::endl;
+      std::cerr << "Warning: ROI outside of image boundaries: xPixelNew=" << xPixelNew << " cols=" << cols << " total width of image=" << pImgComplete->cols;
+      std::cerr << " yPixelNew=" << yPixelNew << " rows=" << rows << " total height of image=" << pImgComplete->rows << std::endl;
     }
     imgPart->release();
+    if (pImgScaled)
+    {
+      delete pImgScaled;
+      pImgScaled = NULL;
+    }
   }
-  if (pImgComplete2 && pImgComplete2->data)
+  if (optDebug > 1 && pImgComplete && pImgComplete->data)
   {
-    if (optDebug > 1) cv::imwrite("imgComplete2.jpg", *pImgComplete2);
-    safeBmp *pImageL2  = safeBmpAlloc(pHigherConf->mDetailedWidth, pHigherConf->mDetailedHeight);
-    *ptpImageL2 = pImageL2;
+    std::stringstream ss;
+    ss << "imgComplete" << level;
+    if (orientation != 0)
+    {
+      ss << "_" << orientation;    
+    }
+    ss << ".jpg";
+
+    std::string levelFName = ss.str();
+    cv::imwrite(levelFName.c_str(), *pImgComplete);
+  }
+  if (ptpFullImage && pImgComplete && pImgComplete->data)
+  {
+    safeBmp *pImageL2 = safeBmpAlloc(pConf->mDetailedWidth, pConf->mDetailedHeight);
+    *ptpFullImage = pImageL2;
     safeBmp safeImgComplete2Ref;
-    safeBmpInit(&safeImgComplete2Ref, pImgComplete2->data, pHigherConf->mDetailedWidth, pHigherConf->mDetailedHeight);
+    safeBmpInit(&safeImgComplete2Ref, pImgComplete->data, pConf->mDetailedWidth, pConf->mDetailedHeight);
     safeBmpBGRtoRGBCpy(pImageL2, &safeImgComplete2Ref);
-    pImgComplete2->release();
     safeBmpFree(&safeImgComplete2Ref);
   }
-  if (pImgComplete2)
+  if (ptpMatImage == NULL && pImgComplete)
   {
-    delete pImgComplete2;
-    pImgComplete2 = NULL;
+    pImgComplete->release();
+    delete pImgComplete;
+    pImgComplete = NULL;
+  }
+  else
+  {
+    *ptpMatImage = pImgComplete;
   }
   return true;
 }
 
 #else
 
-bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpImageL2, int orientation, int optDebug, std::fstream& logFile)
+// TODO: Zoom is not enabled on this function yet
+
+bool CompositeSlide::loadFullImage(int level, safeBmp **ptpImageL2, void **ptpMatImage, int orientation, double xZoomOut, double yZoomOut, bool useZoom, int optDebug, std::fstream& logFile)
 {
-  IniConf *pHigherConf = mConf[higherLevel];
-  
-  if (ptpImageL2 == NULL) return false;
+  IniConf *pConf = mConf[level];
+  if (pConf->mFound == false)
+  {
+    return false;
+  }
+  if (ptpImageL2 == NULL)
+  {
+    return false;
+  }
 
   Magick::MagickWand *magickWand = Magick::NewMagickWand();
   Magick::PixelWand *pixelWand = Magick::NewPixelWand();
@@ -1491,26 +1468,67 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
   Magick::MagickSetImageDepth(magickWand, 8);
   Magick::MagickSetImageAlphaChannel(magickWand, Magick::OffAlphaChannel);
   Magick::MagickSetCompression(magickWand, Magick::NoCompression);
-  Magick::MagickNewImage(magickWand, pHigherConf->mDetailedWidth, pHigherConf->mDetailedHeight, pixelWand);
+  Magick::MagickNewImage(magickWand, pConf->mDetailedWidth, pConf->mDetailedHeight, pixelWand);
   Magick::MagickWand *magickWand2 = Magick::NewMagickWand(); 
 
-  if (optDebug > 1) logFile << "Reading level " << higherLevel << "." << std::endl;
-  for (int64_t i=0; i<pHigherConf->mTotalTiles; i++)
+  int64_t orgDetailedWidth = pConf->mOrgDetailedWidth;
+  int64_t orgDetailedHeight = pConf->mOrgDetailedHeight;
+
+  if (optDebug > 1) 
+  {
+    logFile << "Reading level " << level << "." << std::endl;
+  }
+  for (int64_t i=0; i<pConf->mTotalTiles; i++)
   {
     Magick::MagickSetImageType(magickWand2, Magick::TrueColorType);
     Magick::MagickSetImageDepth(magickWand2, 8);
     Magick::MagickSetImageAlphaChannel(magickWand2, Magick::OffAlphaChannel);
-    if (Magick::MagickReadImage(magickWand2, pHigherConf->mxyArr[i].mBaseFileName.c_str())==Magick::MagickFalse)
+    if (Magick::MagickReadImage(magickWand2, pConf->mxyArr[i].mBaseFileName.c_str())==Magick::MagickFalse)
     {
       Magick::ExceptionType exType;
-      std::cerr << "Failed to open '" << pHigherConf->mxyArr[i].mBaseFileName << "'. Reason: " << Magick::MagickGetException(magickWand2, &exType) << std::endl;
+      std::cerr << "Failed to open '" << pConf->mxyArr[i].mBaseFileName << "'. Reason: " << Magick::MagickGetException(magickWand2, &exType) << std::endl;
       continue;
     }  
-    double xPixel=((double)(pHigherConf->mxMax - pHigherConf->mxyArr[i].mx)/(double)pHigherConf->mxAdj);
-    double yPixel=((double)(pHigherConf->myMax - pHigherConf->mxyArr[i].my)/(double)pHigherConf->myAdj);
-    size_t xPixelInt = (size_t) round(xPixel);
-    size_t yPixelInt = (size_t) round(yPixel);
-    Magick::MagickCompositeImage(magickWand, magickWand2, Magick::OverCompositeOp, Magick::MagickTrue, xPixelInt, yPixelInt); 
+    int64_t orgCols = (int64_t) Magick::MagickGetImageWidth(magickWand2);
+    int64_t orgRows = (int64_t) Magick::MagickGetImageHeight(magickWand2);
+
+    switch (orientation)
+    {
+      case 0:
+        break;
+      case 90:
+      case -90:
+      case 270:
+      case 180:
+        Magick::MagickRotateImage(magickWand2, pixelWand, (double) orientation);
+        break;
+    }
+    double xPixelDbl=((double)(pConf->mxMax - pConf->mxyArr[i].mx)/(double)pConf->mxAdj);
+    double yPixelDbl=((double)(pConf->myMax - pConf->mxyArr[i].my)/(double)pConf->myAdj);
+    int64_t xPixel = (int64_t) round(xPixelDbl);
+    int64_t yPixel = (int64_t) round(yPixelDbl);
+    int64_t xPixelNew = xPixel;
+    int64_t yPixelNew = yPixel;
+    if (orientation == 0)
+    {
+      // place holder, do nothing
+    }  
+    else if (orientation == 90)
+    {
+      xPixelNew = (orgDetailedHeight - yPixel) - orgRows;
+      yPixelNew = xPixel;
+    }
+    else if (orientation == -90 || orientation == 270)
+    {
+      xPixelNew = yPixel;
+      yPixelNew = (orgDetailedWidth - xPixel) - orgCols;
+    }
+    else if (orientation == 180)
+    {
+      xPixelNew = (orgDetailedWidth - xPixel) - orgCols;
+      yPixelNew = (orgDetailedHeight - yPixel) - orgRows;
+    }
+    Magick::MagickCompositeImage(magickWand, magickWand2, Magick::OverCompositeOp, Magick::MagickTrue, xPixelNew, yPixelNew); 
     Magick::ClearMagickWand(magickWand2);
   }
   if (magickWand2) Magick::DestroyMagickWand(magickWand2);
@@ -1522,12 +1540,15 @@ bool CompositeSlide::loadL2Image(int lowerLevel, int higherLevel, safeBmp **ptpI
     Magick::MagickSetImageDepth(magickWand2, 8);
     Magick::MagickSetImageAlphaChannel(magickWand2, Magick::OffAlphaChannel);
     MagickSetImageCompressionQuality(magickWand2, 90);
-    Magick::MagickWriteImage(magickWand2, "imgComplete2.jpg");
+    std::stringstream ss;
+    ss << "imgComplete" << level << ".jpg";
+    std::string levelFName = ss.str();
+    Magick::MagickWriteImage(magickWand2, levelFName);
     Magick::DestroyMagickWand(magickWand2);
   }
-  safeBmp *pImageL2 = safeBmpAlloc(pHigherConf->mDetailedWidth, pHigherConf->mDetailedHeight);
+  safeBmp *pImageL2 = safeBmpAlloc(pConf->mDetailedWidth, pConf->mDetailedHeight);
   *ptpImageL2 = pImageL2;
-  Magick::MagickExportImagePixels(magickWand, 0, 0, pHigherConf->mDetailedWidth, pHigherConf->mDetailedHeight, "RGB", Magick::CharPixel, pImageL2->data);
+  Magick::MagickExportImagePixels(magickWand, 0, 0, pConf->mDetailedWidth, pConf->mDetailedHeight, "RGB", Magick::CharPixel, pImageL2->data);
   Magick::DestroyPixelWand(pixelWand);
   Magick::DestroyMagickWand(magickWand);
   return true;

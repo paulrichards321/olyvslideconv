@@ -143,7 +143,7 @@ class IniConf
 {
 public:
   const char* mname;
-  bool mfound;
+  bool mFound;
   int64_t mxMin, mxMax, myMin, myMax;
   int64_t mxDiffMin, myDiffMin;
   int64_t mxStepSize, myStepSize;
@@ -203,10 +203,17 @@ public:
   bool read(int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
   bool read(BYTE *pBmp, int level, int direction, int zLevel, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale, int64_t *readWidth, int64_t *readHeight);
   bool allocate(safeBmp* pBmp, int level, int64_t x, int64_t y, int64_t width, int64_t height, bool setGrayScale = false);
+
   #ifndef USE_MAGICK
-  bool findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, safeBmp **pImageL2, int debugLevel, std::fstream& logFile);
+  bool findXYOffset(int lowerLevel, int higherLevel, int64_t *bestXOffset0, int64_t *bestYOffset0, int64_t *bestXOffset1, int64_t *bestYOffset1, int optUseCustomOffset, int debugLevel, std::fstream& logFile);
   #endif
-  bool loadL2Image(int lowerLevel, int higherLevel, safeBmp **pImageL2, int orientation, int debugLevel, std::fstream& logFile);
+
+  #ifndef USE_MAGICK
+  bool loadFullImage(int level, safeBmp **ptpFullImage, cv::Mat **ptpMatImage, int orientation, double xZoomOut, double yZoomOut, bool useZoom, int optDebug, std::fstream& logFile);
+  #else
+  bool loadFullImage(int level, safeBmp **ptpImageL2, void **ptpMatImage, int orientation, double xZoomOut, double yZoomOut, bool useZoom, int optDebug, std::fstream& logFile);
+  #endif
+  
   bool checkLevel(int level);
   bool checkZLevel(int level, int direction, int zLevel); 
   int getTotalZLevels() { return mValidObject == true ? mTotalZLevels : 0; }
@@ -215,20 +222,20 @@ public:
   static bool testHeader(BYTE*, int64_t);
   bool isPreviewSlide(size_t level);
   int getMagnification() { return (mValidObject == true ? mmagnification : 0); }
-  int getQuality(size_t level) { if (mValidObject == true && level < mConf.size() && mConf[level]->mfound) { return mConf[level]->mQuality; } else { return 0; } }
+  int getQuality(size_t level) { if (mValidObject == true && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->mQuality; } else { return 0; } }
   long long getBaseWidth() { return (mValidObject == true ? mbaseWidth : 0); }
   long long getBaseHeight() { return (mValidObject == true ? mbaseHeight : 0); }
-  int64_t getActualWidth(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mfound ? mConf[level]->mTotalWidth : 0); }
-  int64_t getActualHeight(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mfound ? mConf[level]->mTotalHeight : 0); }
-  double getXAdj(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mfound) { return mConf[level]->mxAdj; } else { return 1; }}
-  double getYAdj(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mfound) { return mConf[level]->myAdj; } else { return 1; }}
-  int64_t getTotalTiles(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mfound) { return mConf[level]->mTotalTiles; } else { return 0; }}
+  int getPixelWidth(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mPixelWidth : 0); }
+  int getPixelHeight(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mPixelHeight : 0); }
+  int64_t getActualWidth(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mTotalWidth : 0); }
+  int64_t getActualHeight(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mTotalHeight : 0); }
+  double getXAdj(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->mxAdj; } else { return 1; }}
+  double getYAdj(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->myAdj; } else { return 1; }}
+  int64_t getTotalTiles(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->mTotalTiles; } else { return 0; }}
   bool drawBorder(BYTE *pBuff, int samplesPerPixel, int64_t x, int64_t y, int64_t width, int64_t height, int level);
-  // old defintion: 
-  // void blendLevelsByRegion(BYTE *pDest, BYTE *pSrc, int64_t x, int64_t y, int64_t width, int64_t height, int tileWidth, int tileHeight, double xScaleOut, double yScaleOut, int srcLevel);
   void blendLevelsByRegion(safeBmp* pSafeDest, safeBmp* pSafeSrc, int64_t x, int64_t y, double xScaleOut, double yScaleOut, int srcLevel);
-  std::vector<JpgFileXY>* getTileXYArray(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mfound) { return &mConf[level]->mxyArr; } else { return NULL; }}
-  bool setOrientation(int orientation);
+  std::vector<JpgFileXY>* getTileXYArray(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return &mConf[level]->mxyArr; } else { return NULL; }}
+  bool setOrientation(int orientation, std::fstream& logFile);
 };
 
 void blendLevelsByBkgd(safeBmp *pDest, safeBmp *pSrc, safeBmp *pSrcL2, int64_t x, int64_t y, int64_t rowWidth, int16_t xLimit, int16_t yLimit, int16_t *xFreeMap, int64_t totalXMap, int16_t *yFreeMap, int64_t totalYMap, BYTE bkgdColor, bool tiled);
