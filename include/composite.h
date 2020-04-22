@@ -45,6 +45,9 @@ const char* getMagickCoreLibraryPath();
 #endif 
 #include "safebmp.h"
 
+#if !defined(BLENDBKGD_H)
+#include "blendbkgd.h"
+#endif
 
 inline char separator()
 {
@@ -233,13 +236,10 @@ public:
   double getYAdj(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->myAdj; } else { return 1; }}
   int64_t getTotalTiles(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->mTotalTiles; } else { return 0; }}
   bool drawBorder(BYTE *pBuff, int samplesPerPixel, int64_t x, int64_t y, int64_t width, int64_t height, int level);
-  void blendLevelsByRegion(safeBmp* pSafeDest, safeBmp* pSafeSrc, int64_t x, int64_t y, double xScaleOut, double yScaleOut, int srcLevel);
+  void blendLevelsRegionScan(BlendSection** yFreeMap);
   std::vector<JpgFileXY>* getTileXYArray(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return &mConf[level]->mxyArr; } else { return NULL; }}
   bool setOrientation(int orientation, std::fstream& logFile);
 };
-
-void blendLevelsByBkgd(safeBmp *pDest, safeBmp *pSrc, safeBmp *pSrcL2, int64_t x, int64_t y, int64_t rowWidth, int16_t xLimit, int16_t yLimit, int16_t *xFreeMap, int64_t totalXMap, int16_t *yFreeMap, int64_t totalYMap, BYTE bkgdColor, bool tiled);
-
 
 #ifndef USE_MAGICK
 class CVMatchCompare 

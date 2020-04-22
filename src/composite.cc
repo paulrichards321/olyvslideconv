@@ -917,8 +917,8 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
       double minusL0X = higherMinBaseX * higherRatioX * ratioBL0X;
       double minusL0Y = higherMinBaseY * higherRatioY * ratioBL0Y;
 
-      bestXOffsetL0 = (int64_t) floor(lowerMinBaseL0X * ratioAL0X - minusL0X);
-      bestYOffsetL0 = (int64_t) floor(lowerMinBaseL0Y * ratioAL0Y - minusL0Y);
+      bestXOffsetL0 = (int64_t) ceil(lowerMinBaseL0X * ratioAL0X - minusL0X);
+      bestYOffsetL0 = (int64_t) ceil(lowerMinBaseL0Y * ratioAL0Y - minusL0Y);
     }
     if (mConf[1]->mFound)
     {
@@ -939,8 +939,8 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
       double minusL1X = higherMinBaseX * higherRatioX * ratioBL1X;
       double minusL1Y = higherMinBaseY * higherRatioY * ratioBL1Y;
 
-      bestXOffsetL1 = (int64_t) floor(lowerMinBaseL1X * ratioAL1X - minusL1X);
-      bestYOffsetL1 = (int64_t) floor(lowerMinBaseL1Y * ratioAL1Y - minusL1Y);
+      bestXOffsetL1 = (int64_t) ceil(lowerMinBaseL1X * ratioAL1X - minusL1X);
+      bestYOffsetL1 = (int64_t) ceil(lowerMinBaseL1Y * ratioAL1Y - minusL1Y);
     }
   }
   if (optDebug > 0)
@@ -1543,7 +1543,7 @@ bool CompositeSlide::loadFullImage(int level, safeBmp **ptpImageL2, void **ptpMa
     std::stringstream ss;
     ss << "imgComplete" << level << ".jpg";
     std::string levelFName = ss.str();
-    Magick::MagickWriteImage(magickWand2, levelFName);
+    Magick::MagickWriteImage(magickWand2, levelFName.c_str());
     Magick::DestroyMagickWand(magickWand2);
   }
   safeBmp *pImageL2 = safeBmpAlloc(pConf->mDetailedWidth, pConf->mDetailedHeight);

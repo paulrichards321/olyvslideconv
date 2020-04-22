@@ -5,224 +5,119 @@
 #include "composite.h"
 #include "blendbkgd.h"
 
-void CompositeSlide::blendLevelsByRegion(safeBmp* pSafeDest, safeBmp* pSafeSrc, int64_t x, int64_t y, double xScaleOut, double yScaleOut, int srcLevel)
+void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap) 
 {
-  if (checkLevel(srcLevel)==false) return;
-  IniConf *pLowerConf=mConf[srcLevel];
-  int64_t fileWidth=pLowerConf->mPixelWidth;
-  int64_t fileHeight=pLowerConf->mPixelHeight;
-  int64_t tileWidth=pSafeDest->width;
-  int64_t tileHeight=pSafeDest->height;
-
-  if (pSafeSrc->width < tileWidth)
-    tileWidth = pSafeSrc->width;
-  if (pSafeSrc->height < tileHeight)
-    tileHeight = pSafeSrc->height;
-    
-  for (int64_t tileNum=0; tileNum<pLowerConf->mTotalTiles; tileNum++)
-  {
-    int64_t xCurrentPos=(int64_t) pLowerConf->mxyArr[tileNum].mxPixel;
-    int64_t yCurrentPos=(int64_t) pLowerConf->mxyArr[tileNum].myPixel;
-    // first check if the x y coordinates are within the region of the bitmap
-    if (((x<xCurrentPos && x+tileWidth>xCurrentPos) || (x>=xCurrentPos && x<xCurrentPos+fileWidth)) &&
-       ((y<yCurrentPos && y+tileHeight>yCurrentPos) || (y>=yCurrentPos && y<yCurrentPos+fileHeight)))
-    {
-      int64_t y2=yCurrentPos;
-      if (y2 < y)
-      {
-        y2 = y;
-      }
-      y2 = y2 - y;
-      int64_t y3=yCurrentPos + fileHeight;
-      if (y3 > y+tileHeight)
-      {
-        y3 = y + tileHeight;
-      }
-      y3 = y3 - y;
-      int64_t x2=xCurrentPos;
-      if (x2 < x)
-      {
-        x2 = x;
-      }
-      x2 = x2 - x;
-      int64_t x3=xCurrentPos + fileWidth;
-      if (x3 > x+tileWidth)
-      {
-        x3 = x + tileWidth;
-      }
-      x3 = x3 - x;
-      int64_t yCopy = (int64_t) ceil((double) y3 * yScaleOut);
-      if (yCopy > tileHeight) 
-      {
-        yCopy=tileHeight;
-      }
-      int64_t xOffset = (int64_t) floor((double) x2 * xScaleOut);
-      int64_t xCopy = (int64_t) ceil((double) (x3-x2) * xScaleOut);
-      if (xOffset > tileWidth)
-      {
-        continue;
-      }
-      if (xOffset + xCopy > tileWidth)
-      {
-        xCopy = tileWidth - xOffset;
-      }
-      int64_t yOffset = (int64_t) round(y2 * yScaleOut);
-      safeBmpCpy(pSafeDest, xOffset, yOffset, pSafeSrc, xOffset, yOffset, xCopy, yCopy);
-
-      /*
-      for (int64_t y4 = (int64_t) round(y2 * yScaleOut); y4 < yMax; y4++)
-      {
-        int64_t offset2=(y4 * tileWidth * 3)+offset;
-        if (offset2 + rowSize2 <= tileSize)
-        {
-          memcpy(&pDest[offset2], &pSrc[offset2], rowSize2);
-        }
-      }*/
-    }
-  }
-}
-
-
-void blendLevelsScan(BlendBkgdArgs* args)
-{
-  BYTE* pSrc = args->pSafeSrc->data;
-  int64_t tileWidth = args->pSafeSrc->width;
-  int64_t tileHeight = args->pSafeSrc->height;
-  int64_t x = args->x;
-  int64_t y = args->y;
-  int64_t ySrc = 0;
-  int64_t xSrc = 0;
-  if (y < 0 && abs(y) > tileHeight)
-  {
-    return;
-  }
-  else if (y < 0)
-  {
-    ySrc = abs(y);
-  }
-  if (ySrc + y > args->ySize) return;
-
-  if (x < 0 && abs(x) > tileWidth)
-  {
-    return;
-  }
-  else if (x < 0)
-  {
-    xSrc = abs(x);
-  }
-  if (xSrc + x > args->xSize) return;
+  if (yFreeMap == NULL) return;
   
-  int64_t srcRowSize = args->pSafeSrc->strideWidth; 
-  unsigned char bkgdColor = args->bkgdColor;
-  int xLimit = args->xLimit;
-  int yLimit = args->yLimit;
-  BlendSection **xFreeMap = args->xFreeMap;
-  BlendSection **yFreeMap = args->yFreeMap;
-  int64_t ySize = args->ySize;
-  int64_t xSize = args->xSize;
-  while (ySrc < tileHeight && y+ySrc < ySize)
+  int bottomLevel = 0;
+  while (bottomLevel < 4)
   {
-    xSrc = 0;
-    if (x < 0)
+    if (checkLevel(bottomLevel)) break;
+    bottomLevel++;
+  }
+  IniConf *pBottomConf = mConf[bottomLevel];
+  int64_t bottomTotalWidth = getActualWidth(bottomLevel);
+  int64_t bottomTotalHeight = getActualHeight(bottomLevel);
+
+  for (int64_t y=0; y < bottomTotalHeight; y++)
+  {
+    BlendSection *xTail = new BlendSection(0);
+    xTail->setFree(bottomTotalWidth);
+    yFreeMap[y] = xTail;
+  }
+ 
+  int64_t fileWidth=pBottomConf->mPixelWidth;
+  int64_t fileHeight=pBottomConf->mPixelHeight;
+  
+  for (int64_t tileNum=0; tileNum<pBottomConf->mTotalTiles; tileNum++)
+  {
+    int64_t x2=pBottomConf->mxyArr[tileNum].mxPixel;
+    int64_t y2=pBottomConf->mxyArr[tileNum].myPixel;
+    int64_t x3=x2 + fileWidth;
+    int64_t y3=y2 + fileHeight;
+    // first check if the x y coordinates are within the region of the bitmap
+    int64_t y = y2;
+    while (y < y3)
     {
-      xSrc = abs(x);
-    }
-    BYTE *pSrcB = &pSrc[(ySrc * srcRowSize) + (xSrc * 3)];
-    BlendSection *xTail = yFreeMap[y+ySrc];
-    if (xTail == NULL)
-    {
-      xTail = new BlendSection(0);
-      yFreeMap[y+ySrc] = xTail;
-    }
-    while (xSrc < tileWidth && x+xSrc < xSize)
-    {
-      BlendSection *yTail = xFreeMap[x+xSrc];
-      if (yTail == NULL)
+      BlendSection *xTail = yFreeMap[y];
+      BlendSection *xNext = NULL;
+      BlendSection *xPrevious = NULL;
+      if (xTail == NULL)
       {
-        yTail = new BlendSection(0);
-        xFreeMap[x+xSrc] = yTail;
+        xTail = new BlendSection(0);
+        xTail->setFree(bottomTotalWidth);
+        yFreeMap[y] = xTail;
       }
-      if (*pSrcB >= bkgdColor && pSrcB[1] >= bkgdColor && pSrcB[2] >= bkgdColor)
+      while (xTail)
       {
-        if (xTail->getFree() == 0)
+        int64_t tailStart = xTail->getStart();
+        int64_t tailLen = xTail->getFree();
+        int64_t tailEnd = tailStart + tailLen;
+        xNext = xTail->getNext();
+        if (x2 > tailStart && x2 < tailEnd)
         {
-          xTail->setStart(x+xSrc);
+          xTail->setFree(x2 - tailStart);
+          if (x3 < tailEnd)
+          {
+            BlendSection *xNew = new BlendSection(x3+1);
+            xNew->setFree(tailEnd - x3);
+            xNew->setNext(xNext);
+            xTail->setNext(xNew);
+            xNext = xNew;
+          }
         }
-        xTail->incrementFree();
-        if (yTail->getFree() == 0)
+        else if (x2 < tailStart && x3 > tailStart)
         {
-          yTail->setStart(y+ySrc);
+          if (x3 >= tailEnd)
+          {
+            delete xTail;
+            xTail = NULL;
+            if (xPrevious)
+            {
+              xPrevious->setNext(xNext);
+              xTail = xPrevious;
+            }
+            else
+            {
+              yFreeMap[y] = xNext;
+            }
+          }
+          else if (x3 < tailEnd)
+          {
+            xTail->setStart(x3+1);
+            xTail->setFree((tailEnd - x3) - 1);
+          }
         }
-        yTail->incrementFree();
+        xPrevious = xTail;
+        xTail = xNext;
       }
-      else
-      {
-        if (xTail->getFree() >= xLimit)
-        {
-          BlendSection* xLast = xTail;
-          xTail = new BlendSection(xSrc + x);
-          xTail->setPrevious(xLast);
-          xLast->setNext(xTail);
-          yFreeMap[y+ySrc] = xTail;
-        }
-        else
-        {
-          xTail->clearFree();
-        }
-        if (yTail->getFree() >= yLimit)
-        {
-          BlendSection* yLast = yTail;
-          yTail = new BlendSection(ySrc + y);
-          yTail->setPrevious(yLast);
-          yLast->setNext(yTail);
-          xFreeMap[x+xSrc] = yTail;
-        }
-        else
-        {
-          yTail->clearFree();
-        }
-      }
-      xSrc++;
-      pSrcB += 3;
-    }
-    ySrc++;
+      y++;
+    } 
   }
 }
 
 
-void blendLevelsFree(BlendSection** xFreeMap, int64_t xSize, BlendSection** yFreeMap, int64_t ySize)
+void blendLevelsFree(BlendSection** yFreeMap, int64_t ySize)
 {
   BlendSection *tail=NULL;
   BlendSection *tailOld=NULL;
-  // free all the y and x pointers
-  for (int i=0; i < xSize; i++)
-  {
-    tail = xFreeMap[i];
-    while (tail != NULL)
-    {
-      tailOld = tail;
-      tail = tail->getPrevious();
-      delete tailOld;
-    }
-  }
-  for (int i=0; i < ySize; i++)
+  for (int64_t i=0; i < ySize; i++)
   {
     tail = yFreeMap[i];
     while (tail != NULL)
     {
       tailOld = tail;
-      tail = tail->getPrevious();
+      tail = tail->getNext();
       delete tailOld;
     }
   }
 }
 
 
-void blendLevelsByBkgd(BlendBkgdArgs *args)
+void blendLevels(BlendArgs *args)
 {
-  int64_t tileWidth = args->pSafeSrc->width;
-  int64_t tileHeight = args->pSafeSrc->height;
-  int64_t xSize = args->xSize;
+  int64_t tileWidth = args->pSafeSrcL2->width;
+  int64_t tileHeight = args->pSafeSrcL2->height;
   int64_t ySize = args->ySize;
 
   int64_t x = args->x;
@@ -230,13 +125,13 @@ void blendLevelsByBkgd(BlendBkgdArgs *args)
   int64_t xSrc=0;
   int64_t ySrc=0;
   
-  if (y < 0 && abs(y) > tileHeight)
+  if (y < 0 && y+ySize < 0)
   {
     return;
   }
   else if (y < 0)
   {
-    ySrc = abs(y);
+    ySrc = y;
   }
   if (ySrc + y > ySize) return;
 
@@ -248,22 +143,17 @@ void blendLevelsByBkgd(BlendBkgdArgs *args)
   {
     xSrc = abs(x);
   }
-  if (xSrc + x > xSize) return;
 
   double xFactor = args->xFactor;
   double yFactor = args->yFactor;
  
-  int xLimit = args->xLimit;
-  int yLimit = args->yLimit;
-  int64_t xEndA = round((x + tileWidth) * xFactor);
-  if (xEndA > xSize) xEndA = xSize;
-  int64_t yEndA = round((y + tileHeight) * yFactor);
+  int64_t xEndA = ceil((x + tileWidth) * xFactor);
+  int64_t yEndA = ceil((y + tileHeight) * yFactor);
   if (yEndA > ySize) yEndA = ySize;
-  int64_t xStartA = round((x + xSrc) * xFactor);
-  int64_t yStartA = round((y + ySrc) * yFactor);
+  int64_t xStartA = floor((x + xSrc) * xFactor);
+  int64_t yStartA = floor((y + ySrc) * yFactor);
   int64_t xStartB, xFreeB, xEndB;
   BlendSection** yFreeMap = args->yFreeMap;
-  BlendSection** xFreeMap = args->xFreeMap;
   while (yStartA < yEndA)
   {
     BlendSection *xTail = yFreeMap[yStartA];
@@ -273,10 +163,9 @@ void blendLevelsByBkgd(BlendBkgdArgs *args)
       xStartB = xTail->getStart();
       xFreeB = xTail->getFree();
       xEndB = xStartB + xFreeB;
-      if (xFreeB >= xLimit && 
-         ((xStartB <= xStartA && xEndB >= xStartA) || 
-          (xStartB >= xStartA && xEndA >= xStartB)
-         ))
+      if (xStartB > xEndA) break;
+      if (((xStartB <= xStartA && xEndB >= xStartA) || 
+           (xStartB >= xStartA)))
       {
         int64_t xStartC = floor(xStartB / xFactor);
         if (xStartC < x)
@@ -293,63 +182,13 @@ void blendLevelsByBkgd(BlendBkgdArgs *args)
           xEndC = x+tileWidth;
         }
         int64_t xCopy = xEndC - xStartC;
-        if (xCopy == 0 && xStartC < x+tileWidth && floor(xEndB / xFactor) >= x) xCopy = 1;
+        if (xCopy == 0 && xStartC < x+tileWidth && ceil(xEndB / xFactor) >= x) xCopy = 1;
         xSrc = xStartC - x;
         safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, xCopy, 1); // copy just one row
       }
-      xTail = xTail->getPrevious();
+      xTail = xTail->getNext();
     }
     yStartA++;
-  }
-
-  ySrc = 0;
-  if (y < 0)
-  {
-    ySrc = abs(y);
-  }
-  xSrc = 0;
-  if (x < 0)
-  {
-    xSrc = abs(x);
-  }
-  yStartA = round((y + ySrc) * yFactor);
-  xStartA = round((x + xSrc) * xFactor);
-  int64_t yStartB, yFreeB, yEndB;
-  while (xStartA < xEndA)
-  {
-    BlendSection *yTail = xFreeMap[xStartA];
-    xSrc = floor(xStartA / xFactor) - x;
-    while (yTail != NULL) 
-    {
-      yStartB = yTail->getStart();
-      yFreeB = yTail->getFree();
-      yEndB = yStartB + yFreeB;
-      if (yFreeB >= yLimit && 
-         ((yStartB <= yStartA && yEndB >= yStartA) || 
-          (yStartB >= yStartA && yEndA >= yStartB)))
-      {
-        int64_t yStartC = floor(yStartB / yFactor);
-        if (yStartC < y)
-        {
-          yStartC = y;
-        }
-        else if (yStartC > y+tileHeight)
-        {
-          yStartC = y+tileHeight;
-        }
-        int64_t yEndC = ceil(yEndB / yFactor);
-        if (yEndC > y+tileHeight)
-        {
-          yEndC = y+tileHeight;
-        }
-        int64_t yCopy = yEndC - yStartC;
-        if (yCopy == 0 && yStartC < y+tileHeight && floor(yEndB / yFactor) >= y) yCopy = 1;
-        ySrc = yStartC - y;
-        safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, 1, yCopy); // copy just one vertical row
-      }
-      yTail = yTail->getPrevious();
-    }
-    xStartA++;
   }
 }
 

@@ -177,7 +177,7 @@ typedef struct slidelevel_t
   double optGamma;
   int64_t optMaxMem;
   bool optLog;
-  bool scanBkgd;
+  int optBlend;
   int olympusLevel;
   int readDirection;
   int readZLevel;
@@ -213,8 +213,6 @@ typedef struct slidelevel_t
   double xScaleResize, yScaleResize;
   double xBlendFactor;
   double yBlendFactor;
-  int xBkgdLimit;
-  int yBkgdLimit;
   double grabWidthA, grabWidthB;
   double grabHeightA, grabHeightB;
   double grabWidthL2, grabHeightL2;
@@ -292,7 +290,6 @@ protected:
   bool mOptTif;
   bool mOptGoogle;
   bool mOptBlend;
-  bool mOptRegion;
   int mOptDebug;
   bool mOptZStack;
   bool mOptLog;
@@ -318,8 +315,7 @@ protected:
   int mTopOutLevel;
   int64_t mMaxSide;
   safeBmp *mpImageL2;
-  int64_t mTotalXSections, mTotalYSections;
-  BlendSection **mxSubSections;
+  int64_t mTotalYSections;
   BlendSection **mySubSections;
 public:
   #if defined(_WIN32) || defined(_WIN64) || defined(__CYGWIN__) || defined(__MINGW__)
@@ -346,7 +342,6 @@ public:
   int convert2Gmap();
   void tileCleanup(SlideLevel &l);
   void blendL2WithSrc(SlideLevel &l);
-  void scanSrcTileBkgd(SlideLevel& l);
   void processSrcTile(SlideLevel& l);
   void processGamma(SlideLevel& l);
   void printPercDone(SlideLevel& l);
@@ -394,9 +389,7 @@ SlideConvertor::SlideConvertor()
   mOptZStack=getBoolOpt(SLIDE_DEFAULT_ZSTACK);
   mOptQuality=SLIDE_DEFAULT_QUALITY;
   mpImageL2=NULL;
-  mTotalXSections = 0;
   mTotalYSections = 0;
-  mxSubSections = NULL;
   mySubSections = NULL;
   mOrientation = 0;
 }
@@ -482,7 +475,7 @@ void SlideConvertor::processGamma(SlideLevel &l)
 void SlideConvertor::blendL2WithSrc(SlideLevel &l)
 {
   safeBmp bitmapL2Mini;
-  BlendBkgdArgs blendArgs;
+  safeBmp *pFinalL2 = &bitmapL2Mini;
 
   safeBmpClear(&bitmapL2Mini);
   int64_t xSrcStartL2=round(l.xSrc * l.xScaleL2);
@@ -499,7 +492,7 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
     yDestStartL2 = abs(ySrcStartL2);
     ySrcStartL2 = 0;
   }
-  if (safeBmpAlloc2(&bitmapL2Mini, (int64_t) l.grabWidthL2, (int64_t) l.grabHeightL2)==NULL)
+  if (safeBmpAlloc2(&bitmapL2Mini, (int64_t) l.grabWidthL2, (int64_t) round(l.grabHeightL2))==NULL)
   {
     return;
   }
@@ -509,7 +502,9 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   l.pImgScaledL2Mini = new cv::Mat;
   cv::Mat imgSrc(l.grabHeightL2, l.grabWidthL2, CV_8UC3, bitmapL2Mini.data);
   cv::Size scaledSize(l.finalOutputWidth, l.finalOutputHeight);
-  cv::resize(imgSrc, *l.pImgScaledL2Mini, scaledSize, l.xScaleResize, l.yScaleResize, l.scaleMethodL2);
+  double xScaleResize = (double) l.inputTileWidth / (double) l.grabWidthL2;
+  double yScaleResize = (double) l.inputTileHeight / (double) l.grabHeightL2;
+  cv::resize(imgSrc, *l.pImgScaledL2Mini, scaledSize, xScaleResize, yScaleResize, l.scaleMethodL2);
   imgSrc.release();
   safeBmpInit(&l.safeScaledL2Mini, l.pImgScaledL2Mini->data, l.finalOutputWidth, l.finalOutputHeight);
   #else
@@ -527,72 +522,41 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   Magick::ClearMagickWand(l.magickWand);
   #endif
   
+  pFinalL2 = &l.safeScaledL2Mini;
   if (l.finalOutputWidth != l.finalOutputWidth2 || l.finalOutputHeight != l.finalOutputHeight2)
   {
     safeBmpAlloc2(&l.safeScaledL2Mini2, (int64_t) l.finalOutputWidth2, (int64_t) l.finalOutputHeight2);
     safeBmpByteSet(&l.safeScaledL2Mini2, l.bkgdColor);
     safeBmpCpy(&l.safeScaledL2Mini2, 0, 0, &l.safeScaledL2Mini, 0, 0, l.finalOutputWidth, l.finalOutputHeight);
+    pFinalL2 = &l.safeScaledL2Mini2;
   }
   if (l.optDebug > 1)
   {
     std::string errMsg;
-    std::string l2TileName=*l.pTileName;
-    l2TileName.append(".l2.jpg");
-    bool writeOk=my_jpeg_write(l2TileName, l.safeScaledL2Mini.data, l.finalOutputWidth2, l.finalOutputHeight2, l.optQuality, &errMsg);
+    std::string l2TileName;//=*l.pTileName;
+    //l2TileName.append(".l2.jpg");
+    std::stringstream ss;
+    ss << "l2.l" << l.olympusLevel << "x" << l.xSrc << "y" << l.ySrc << ".jpg";
+    l2TileName=ss.str();
+    bool writeOk=my_jpeg_write(l2TileName, pFinalL2->data, pFinalL2->width, pFinalL2->height, l.optQuality, &errMsg);
     if (!writeOk) 
     {
       std::cout << "Error writing debug file '" << l2TileName << "' errMsg: " << errMsg << std::endl;
     }
   }
-  if (mOptRegion)
-  {
-    // slide->blendLevelsByRegion(l.safeScaledL2Mini.data, l.pBitmapSrc, round(l.xSrc), round(l.ySrc), round(l.grabWidthA), round(l.grabHeightA), l.inputTileWidth, l.inputTileHeight, l.xScaleReverse, l.yScaleReverse, l.olympusLevel); 
-    slide->blendLevelsByRegion(&l.safeScaledL2Mini, l.pBitmapSrc, round(l.xSrc), round(l.ySrc), l.xScaleReverse, l.yScaleReverse, l.olympusLevel); 
-    safeBmpInit(&l.bitmapBlended, l.safeScaledL2Mini.data, l.finalOutputWidth2, l.finalOutputHeight2);
-    l.pBitmapFinal = &l.bitmapBlended;
-  }
-  else
-  {
-    safeBmpCpy(l.pBitmap4, 0, 0, l.pBitmapSrc, 0, 0, l.pBitmap4->width, l.pBitmap4->height);
-    blendArgs.x = round(l.xDest) - l.xCenter;
-    blendArgs.y = round(l.yDest) - l.yCenter;
-    blendArgs.pSafeDest = l.pBitmap4;
-    blendArgs.pSafeSrc = l.pBitmapSrc;
-    blendArgs.pSafeSrcL2 = &l.safeScaledL2Mini;
-    blendArgs.xFactor = l.xBlendFactor;
-    blendArgs.yFactor = l.yBlendFactor;
-    blendArgs.xFreeMap = l.xSubSections;
-    blendArgs.yFreeMap = l.ySubSections;
-    blendArgs.xSize = l.totalXSections;
-    blendArgs.ySize = l.totalYSections;
-    blendArgs.xLimit = l.xBkgdLimit;
-    blendArgs.yLimit = l.yBkgdLimit;
-    blendArgs.bkgdColor = l.bkgdColor;
-    blendLevelsByBkgd(&blendArgs);
-    l.pBitmapFinal = l.pBitmap4;
-  }
-  safeBmpFree(&bitmapL2Mini);
-}
-
-
-void SlideConvertor::scanSrcTileBkgd(SlideLevel& l)
-{
-  BlendBkgdArgs blendArgs;
-  blendArgs.pSafeSrc = l.pBitmapSrc;
-  blendArgs.pSafeDest = NULL;
-  blendArgs.pSafeSrcL2 = NULL;
-  blendArgs.x = round(l.xSrcRead);
-  blendArgs.y = round(l.ySrcRead);
+  BlendArgs blendArgs;
+  safeBmpCpy(l.pBitmap4, 0, 0, l.pBitmapSrc, 0, 0, l.pBitmap4->width, l.pBitmap4->height);
+  blendArgs.x = round(l.xDest) - l.xCenter;
+  blendArgs.y = round(l.yDest) - l.yCenter;
+  blendArgs.pSafeDest = l.pBitmap4;
+  blendArgs.pSafeSrcL2 = &l.safeScaledL2Mini;
   blendArgs.xFactor = l.xBlendFactor;
   blendArgs.yFactor = l.yBlendFactor;
-  blendArgs.xFreeMap = l.xSubSections;
   blendArgs.yFreeMap = l.ySubSections;
-  blendArgs.xSize = l.totalXSections;
   blendArgs.ySize = l.totalYSections;
-  blendArgs.xLimit = l.xBkgdLimit;
-  blendArgs.yLimit = l.yBkgdLimit;
-  blendArgs.bkgdColor = l.bkgdColor;
-  blendLevelsScan(&blendArgs);
+  blendLevels(&blendArgs);
+  l.pBitmapFinal = l.pBitmap4;
+  safeBmpFree(&bitmapL2Mini);
 }
 
 
@@ -622,9 +586,12 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     l.pImgScaled = new cv::Mat;
     cv::Mat imgSrc(l.grabHeightRead, l.grabWidthRead, CV_8UC3, l.pBitmapSrc->data);
     cv::Size scaledSize(l.inputSubTileWidthRead, l.inputSubTileHeightRead);
-    cv::resize(imgSrc, *l.pImgScaled, scaledSize, l.xScaleReverse, l.yScaleReverse, l.scaleMethod);
+    double xScaleResize = (double) l.inputSubTileWidthRead / (double) l.grabWidthRead;
+    double yScaleResize = (double) l.inputSubTileHeightRead / (double) l.grabHeightRead;
+    cv::resize(imgSrc, *l.pImgScaled, scaledSize, xScaleResize, yScaleResize, l.scaleMethod);
     imgSrc.release();
     safeBmpInit(&l.safeImgScaled, l.pImgScaled->data, l.inputSubTileWidthRead, l.inputSubTileHeightRead);
+
     #else
     Magick::MagickSetCompression(l.magickWand, Magick::NoCompression);
     Magick::MagickSetImageType(l.magickWand, Magick::TrueColorType);
@@ -681,8 +648,8 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     {
       copyHeight -= (l.yMargin + copyHeight) - l.inputTileHeight;
     }
-    int64_t xSubLoc = l.xSubTile * (int64_t) round((double) l.inputTileWidth / (double) l.totalSubTiles);
-    int64_t ySubLoc = l.ySubTile * (int64_t) round((double) l.inputTileHeight / (double) l.totalSubTiles);
+    int64_t xSubLoc = (int64_t) round((double) l.xSubTile * ((double) l.inputTileWidth / (double) l.totalSubTiles));
+    int64_t ySubLoc = (int64_t) round((double) l.ySubTile * ((double) l.inputTileHeight / (double) l.totalSubTiles));
     xSubLoc += l.xMargin;
     ySubLoc += l.yMargin;
     if (copyWidth > 0 && copyHeight > 0)
@@ -692,11 +659,13 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     l.pBitmapSrc = &l.bitmap1;
     l.pBitmapFinal = &l.bitmap1;
   }
-  if (l.optDebug > 1)
+  if (l.optDebug > 1) 
   {
-    std::string preTileName = *l.pTileName;
+    std::string preTileName;
     std::string errMsg;
-    preTileName.append(".pre.jpg");
+    std::stringstream ss;
+    ss << "pre.l" << l.olympusLevel << "x" << l.xSrc << "y" << l.ySrc << ".jpg";
+    preTileName=ss.str();
     bool writeOk=my_jpeg_write(preTileName, l.pBitmapSrc->data, l.pBitmapSrc->width, l.pBitmapSrc->height, l.optQuality, &errMsg);
     if (!writeOk)
     {
@@ -708,14 +677,7 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
 
 void SlideConvertor::printPercDone(SlideLevel& l)
 {
-  if (l.scanBkgd)
-  {
-    l.perc=(int)(((double) round(l.ySrc) / (double) l.srcTotalHeight) * 100);
-  }
-  else
-  {
-    l.perc=(int)(((double) l.yDest / (double) l.outputLvlTotalHeight) * 100);
-  }
+  l.perc=(int)(((double) l.yDest / (double) l.outputLvlTotalHeight) * 100);
   if (l.perc>100)
   {
     l.perc=100;
@@ -744,6 +706,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   
   l.optGoogle = mOptGoogle;
   l.optTif = mOptTif;
+  l.optBlend = mOptBlend;
   l.optDebug = mOptDebug;
   l.optMaxMem = mOptMaxMem;
   l.optGamma = mOptGamma;
@@ -766,30 +729,9 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   l.scaleMethod=Magick::MitchellFilter;
   l.scaleMethodL2=Magick::MitchellFilter;
   #endif
-  if (options & LEVEL_SCANBKGD)
-  {
-    l.optGoogle = false;
-    l.optTif = false;
-    l.scanBkgd = true;
-  }
-  else
-  {
-    l.scanBkgd = false;
-  }
-  int defaultWidth, defaultHeight; 
-  if (mOrientation == 90 || mOrientation == -90 || mOrientation == 270)
-  {
-    defaultWidth = slide->getPixelHeight(olympusLevel);
-    defaultHeight = slide->getPixelWidth(olympusLevel);
-  }
-  else
-  {
-    defaultWidth = slide->getPixelWidth(olympusLevel);
-    defaultHeight = slide->getPixelHeight(olympusLevel);
-  }
-  std::cout << "Default Width=" << defaultWidth << " Default Height=" << defaultHeight << std::endl;
-
-  l.fillin = (mOptBlend && l.scanBkgd==false && l.olympusLevel < 2) ? true : false;
+  l.xBlendFactor = l.magnifyX; 
+  l.yBlendFactor = l.magnifyY;
+  l.fillin = (mOptBlend && l.olympusLevel < 2) ? true : false;
 
   l.srcTotalWidth = slide->getActualWidth(olympusLevel);
   l.srcTotalHeight = slide->getActualHeight(olympusLevel);
@@ -848,9 +790,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.grabHeightA=(double) l.inputTileHeight * l.yScale;
     l.grabWidthB=(double) l.finalOutputWidth * l.xScale;
     l.grabHeightB=(double) l.finalOutputHeight * l.yScale;
-
-    l.grabWidthL2=round(256.0 * (double) l.srcTotalWidthL2 / (double) l.destTotalWidth);
-    l.grabHeightL2=round(256.0 * (double) l.srcTotalHeightL2 / (double) l.destTotalHeight);
+    l.grabWidthL2=ceil(256.0 * (double) l.srcTotalWidthL2 / (double) l.destTotalWidth);
+    l.grabHeightL2=ceil(256.0 * (double) l.srcTotalHeightL2 / (double) l.destTotalHeight);
   }
   else
   {
@@ -858,8 +799,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.finalOutputHeight=l.destTotalHeight;
     l.finalOutputWidth2=l.destTotalWidth2;
     l.finalOutputHeight2=l.destTotalHeight2;
-    l.inputTileWidth=l.destTotalWidth;
-    l.inputTileHeight=l.destTotalHeight;
+    l.inputTileWidth=l.destTotalWidth2;
+    l.inputTileHeight=l.destTotalHeight2;
     l.grabWidthA=l.srcTotalWidth;
     l.grabHeightA=l.srcTotalHeight;
     l.grabWidthB=l.srcTotalWidth;
@@ -869,7 +810,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   }
   l.totalSubTiles = 1;
   int64_t totalGrabBytes = l.grabWidthB * l.grabHeightB * 3;
-  if (totalGrabBytes > l.optMaxMem && l.scanBkgd==false)
+  if (totalGrabBytes > l.optMaxMem)
   {
     do
     {
@@ -877,38 +818,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       totalGrabBytes = ceil((double) l.grabWidthB / (double) l.totalSubTiles) * ceil((double) l.grabHeightB / (double) l.totalSubTiles) * 3;
     }
     while (totalGrabBytes > l.optMaxMem);
-    std::cout << "Using max memory " << (totalGrabBytes / (1024 * 1024)) << "mb max width=" << (int64_t) round(l.grabWidthB) << " x height=" << (int64_t) round(l.grabHeightB) << " for pixel resizer." << std::endl;
+    std::cout << "Using max memory " << (totalGrabBytes / (1024 * 1024)) << "mb max width=" << l.grabWidthB << " x height=" << l.grabHeightB << " for pixel resizer." << std::endl;
     l.grabWidthA = l.grabWidthB / (double) l.totalSubTiles;
     l.grabHeightA = l.grabHeightB / (double) l.totalSubTiles;
   } 
-
-  if ((l.scanBkgd || l.readOkL2) && mOptRegion==false)
-  {
-    l.xBlendFactor = l.magnifyX; 
-    l.yBlendFactor = l.magnifyY;
-    int minDimen = (defaultWidth > defaultHeight ? defaultHeight : defaultWidth);
     
-    l.xBkgdLimit = minDimen;
-    l.yBkgdLimit = minDimen;
-    if (l.scanBkgd)
-    {
-      l.inputTileWidth = defaultWidth;
-      l.inputTileHeight = defaultHeight;
-      l.grabWidthA = defaultWidth;
-      l.grabHeightA = defaultHeight;
-      l.grabWidthB = defaultWidth;
-      l.grabHeightB = defaultHeight;
-      l.finalOutputWidth = defaultWidth;
-      l.finalOutputHeight = defaultHeight;
-      l.finalOutputWidth2 = defaultWidth;
-      l.finalOutputHeight2 = defaultHeight;
-    }
-  }
-  else
-  {
-    l.xBkgdLimit = 0;
-    l.yBkgdLimit = 0;
-  }
   if (l.center && l.optGoogle)
   {
     calcCenters(l.outLevel, l.xLevelOffset, l.yLevelOffset);
@@ -988,7 +902,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       totalMag=40;
     }
     std::ostringstream oss;
-    if (mBaseLevel==olympusLevel || l.tiled==false)
+    if (mBaseLevel==olympusLevel || l.tiled==false) 
     {
       oss << "|AppMag=" << totalMag;
       if (slide->getTotalZLevels() > 1 && mZSteps == 1) 
@@ -1009,14 +923,6 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       return 4;
     }
   }
-  else if (l.scanBkgd)
-  {
-    output << "Scanning Olympus Level=" << l.olympusLevel << " for Background Blending Information" << std::endl;
-    
-    if (l.optLog) *logFile << output.str();
-    std::cout << output.str();
-  }
-
   bool error=false;
   time_t timeStart=0, timeLast=0;
   #ifdef USE_MAGICK
@@ -1035,21 +941,17 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     {
       safeBmpAlloc2(&l.bitmap1, l.inputTileWidth, l.inputTileHeight);
     }
-    if ((l.readOkL2 || l.scanBkgd) && mOptRegion==false)
+    l.pBitmap4 = safeBmpAlloc(l.finalOutputWidth2, l.finalOutputHeight2);
+    if (l.readOkL2 && l.optBlend)
     {
-      l.pBitmap4 = safeBmpAlloc(l.finalOutputWidth2, l.finalOutputHeight2);
-      if (mTotalXSections == 0 || mTotalYSections == 0)
+      if (mTotalYSections == 0)
       {
-        mTotalXSections = l.outputLvlTotalWidth;
         mTotalYSections = l.outputLvlTotalHeight;
-        mxSubSections=new BlendSection*[mTotalXSections];
         mySubSections=new BlendSection*[mTotalYSections];
-        memset(mxSubSections, 0, mTotalXSections*sizeof(BlendSection*));
         memset(mySubSections, 0, mTotalYSections*sizeof(BlendSection*));
+        slide->blendLevelsRegionScan(mySubSections);
       }
-      l.totalXSections = mTotalXSections; 
       l.totalYSections = mTotalYSections;
-      l.xSubSections=mxSubSections;
       l.ySubSections=mySubSections;
     }
     if (l.optLog)
@@ -1085,7 +987,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       dirPart2 = yRootStream.str();
       yRootStream << mPathSeparator << l.yTileMap;
       yRoot = yRootStream.str();
-      if (l.optDebug > 1 && l.scanBkgd==false)
+      if (l.optDebug > 1)
       {
         // Create the google maps directory structure up to the the y tile
         if (!my_mkdir(dirPart1) || !my_mkdir(dirPart2) || !my_mkdir(yRoot))
@@ -1101,7 +1003,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       dirPartZip2 = yRootStreamZip.str();
       yRootStreamZip << ZipFile::mZipPathSeparator << l.yTileMap;
       yRootZip = yRootStreamZip.str();
-      if (l.optGoogle && l.scanBkgd==false) 
+      if (l.optGoogle) 
       {
         // Create the google maps directory structure up to the the y tile
         if (mZip->addDir(dirPartZip1)==-1 || mZip->addDir(dirPartZip2)==-1 || mZip->addDir(yRootZip)==-1)
@@ -1212,7 +1114,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             l.grabWidthRead = round(grabWidthReadDec);
             l.grabHeightRead = round(grabHeightReadDec);
             if (l.grabWidthRead <= 0 || l.grabHeightRead <= 0) continue;
-            bool allocOk = slide->allocate(&l.subTileBitmap, olympusLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
+            bool allocOk = slide->allocate(&l.subTileBitmap, olympusLevel, round(l.xSrcRead), (l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
             if (allocOk == false) continue; 
             l.pBitmapSrc = &l.subTileBitmap;
             l.pBitmapFinal = &l.subTileBitmap;
@@ -1241,10 +1143,6 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             if (l.optDebug > 2)
             {
               std::cout << "readWidth: " << l.readWidth << " readHeight: " << l.readHeight<< " grabWidth: " << l.grabWidthRead << " grabHeight: " << l.grabHeightRead << std::endl;
-            }
-            if (readOkSrc && l.scanBkgd)
-            {
-              scanSrcTileBkgd(l);
             }
             else if (readOkSrc)
             {
@@ -1276,10 +1174,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         safeBmpClear(&l.safeScaledL2Mini);
         safeBmpClear(&l.safeScaledL2Mini2);
         l.pImgScaledL2Mini = NULL;
-        if (readSubTiles > 0 && l.scanBkgd==false) 
+        if (readSubTiles > 0) 
         {
           bool writeOk=false;
-          if (l.readOkL2)
+          if (l.readOkL2 && l.optBlend)
           {
             blendL2WithSrc(l);  
           }
@@ -1356,10 +1254,6 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         if (l.optLog) *logFile << tifDirErrorMsg << errMsg << std::endl;
         error = true;
       }
-    }
-    if (l.scanBkgd)
-    {
-      //blendLevelsPrune(l.xSubSections, l.totalXSections, l.xBkgdLimit, l.ySubSections, l.totalYSections, l.yBkgdLimit);
     }
   }
   catch (std::bad_alloc& ba)
@@ -1466,12 +1360,7 @@ int SlideConvertor::convert2Tif()
   //****************************************************************
   int divisor = 1;
   int step = 1;
-  int options = LEVEL_SCANBKGD | LEVEL_TILED; 
-  if (mOptBlend)
-  {
-    error=outputLevel(mBaseLevel, divisor, step, options, readWidthL2, readHeightL2, pFullL2Bitmap);
-  }
-
+  int options = LEVEL_TILED; 
   while (divisor != maxDivisor && error==0)
   {
     int tiled = 1;
@@ -1489,7 +1378,7 @@ int SlideConvertor::convert2Tif()
         divisor = 1;
         if (slide->checkLevel(0))
         {
-          olympusLevel = 0; 
+          olympusLevel = 0;
         }
         break;
       case 2:
@@ -1561,10 +1450,6 @@ int SlideConvertor::convert2Gmap()
   int64_t divisor = 1 << mTopOutLevel;
   int outLevel = 0;
 
-  if (mOptBlend)
-  {
-    error=outputLevel(mBaseLevel, 1, 0, LEVEL_TILED | LEVEL_SCANBKGD, readWidthL2, readHeightL2, pFullL2Bitmap);
-  }
   while (outLevel <= mTopOutLevel && error==0)
   {
     int olympusLevel;
@@ -1608,7 +1493,6 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, int opti
   mOrientation = orientation;
   mOptLog = options & CONV_LOG;
   mOptBlend = options & CONV_BLEND;
-  mOptRegion = options & CONV_REGION;
   mOptZStack = options & CONV_ZSTACK;
   if (mOptLog)
   {
@@ -1741,15 +1625,9 @@ void SlideConvertor::closeRelated()
     delete slide;
     slide = NULL;
   }
-  if (mxSubSections && mySubSections)
+  if (mySubSections)
   {
-    blendLevelsFree(mxSubSections, mTotalXSections, mySubSections, mTotalYSections);
-  }
-  if (mxSubSections)
-  {
-    delete[] mxSubSections;
-    mxSubSections = NULL;
-    mTotalXSections = 0;
+    blendLevelsFree(mySubSections, mTotalYSections);
   }
   if (mySubSections)
   {
@@ -1779,14 +1657,13 @@ int main(int argc, char** argv)
   int optHighlight = getBoolOpt(SLIDE_DEFAULT_HIGHLIGHT);
   int optLog = getBoolOpt(SLIDE_DEFAULT_LOG); 
   int optOpenCVAlign = getBoolOpt(SLIDE_DEFAULT_OPENCV_ALIGN);
-  int optRegion = getBoolOpt(SLIDE_DEFAULT_REGION);
   int optZStack = getBoolOpt(SLIDE_DEFAULT_ZSTACK);
   int optQuality = SLIDE_DEFAULT_QUALITY;
   int optDebug = SLIDE_DEFAULT_DEBUG;
   int64_t optMaxJpegCache = SLIDE_DEFAULT_MAX_JPEG_CACHE;
   int64_t optMaxMem = SLIDE_DEFAULT_MAX_MEM; 
   double optGamma = 1.0f;
-  int optSpin = 0;
+  int optRotate = 0;
   int optUseGamma = 0;
   int optXOffset = 0;
   int optYOffset = 0;
@@ -1835,13 +1712,9 @@ xstringfy(SLIDE_DEFAULT_MAX_MEM) "mb.\n"
 SLIDE_DEFAULT_OPENCV_ALIGN ".\n"
 "  -q, --quality=x            Set minimal jpeg quality percentage. Default " 
 xstringfy(SLIDE_DEFAULT_QUALITY) "%.\n"
-"  -r, --region               Blend the top level with the middle level by\n"
-"                             region, not by empty (completely white) pixel\n"
-"                             background.\n" 
-"  -s, --spin=x               Set orientation of slide or 'spin' the entire\n"
+"  -r, --rotate=x             Set orientation of slide or rotate the entire\n"
 "                             by x degrees. Currently only -90, 90, 180, or\n"
 "                             270 degree rotation is supported.\n"
-SLIDE_DEFAULT_REGION ".\n"
 "  -x, --xoffset=x            Manually set X alignment offset of top pyramid\n"
 "                             level with the bottom. Use this if the default\n"
 "                             calculation or opencv computer vision method\n"
@@ -1880,8 +1753,7 @@ SLIDE_DEFAULT_REGION ".\n"
       {"max-mem",           required_argument,  0,             'm'},   
       {"opencv-align",      no_argument,        0,             'o'},
       {"quality",           required_argument,  0,             'q'},
-      {"region",            no_argument,        0,             'r'},
-      {"spin",              required_argument,  0,             's'},
+      {"rotate",            required_argument,  0,             'r'},
       {"xoffset",           required_argument,  0,             'x'},
       {"yoffset",           required_argument,  0,             'y'},
       {"zstack",            no_argument,        0,             'z'},
@@ -1928,10 +1800,7 @@ SLIDE_DEFAULT_REGION ".\n"
         optQuality = getIntOpt(optarg, invalidOpt);
         break;
       case 'r':
-        optBlend = getBoolOpt(optarg, invalidOpt);
-        break;
-      case 's':
-        optSpin = getIntOpt(optarg, invalidOpt);
+        optRotate = getIntOpt(optarg, invalidOpt);
         break;
       case 't':
         optTif = getBoolOpt(optarg, invalidOpt);
@@ -1989,7 +1858,6 @@ SLIDE_DEFAULT_REGION ".\n"
   }
   allOptions = (optOpenCVAlign * CONV_OPENCV_ALIGN) | 
             (optBlend * CONV_BLEND) |
-            (optRegion * CONV_REGION) |
             (optHighlight * CONV_HIGHLIGHT) |
             (optZStack * CONV_ZSTACK) |
             (optLog * CONV_LOG) |
@@ -2027,14 +1895,14 @@ SLIDE_DEFAULT_REGION ".\n"
   {
     std::cout << "Output format: TIFF/SVS" << std::endl;
   }
-  if (optSpin != 0)
+  if (optRotate != 0)
   {
-    std::cout << "Slide Orientation: " << optSpin << " degrees" << std::endl;
+    std::cout << "Slide Orientation: " << optRotate << " degrees" << std::endl;
   }  
 
   if (optDebug > 0)
   {
-    if (optSpin == 0)
+    if (optRotate == 0)
     {
       std::cout << "Slide Orientation: Normal" << std::endl;
     }
@@ -2088,7 +1956,7 @@ SLIDE_DEFAULT_REGION ".\n"
   #endif
  
   slideConv.setDebugLevel(optDebug);
-  error=slideConv.open(infile.c_str(), outfile.c_str(), allOptions, optSpin, optXOffset, optYOffset);
+  error=slideConv.open(infile.c_str(), outfile.c_str(), allOptions, optRotate, optXOffset, optYOffset);
   slideConv.setGamma(allOptions & CONV_CUSTOM_GAMMA, optGamma);
   slideConv.setQuality(optQuality);
   slideConv.setMaxMem(optMaxMem * 1024 * 1024);

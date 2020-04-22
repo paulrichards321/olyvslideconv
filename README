@@ -40,10 +40,13 @@ pacman -Syu
 # Install gcc/g++ compilers:
 pacman -S mingw64/mingw-w64-x86_64-gcc
 
-# Install 'make' command:
+# Install mingw64 'make' command:
 pacman -S mingw64/mingw-w64-x86_64-make
 
-# and:
+# Install 'cmake' command:
+pacman -S mingw64/mingw-w64-x86_64-cmake
+
+# and MSYS2 'make' command:
 pacman -S make
 
 # Install pkg-config:
