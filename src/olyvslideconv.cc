@@ -822,7 +822,6 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.grabWidthA = l.grabWidthB / (double) l.totalSubTiles;
     l.grabHeightA = l.grabHeightB / (double) l.totalSubTiles;
   } 
-    
   if (l.center && l.optGoogle)
   {
     calcCenters(l.outLevel, l.xLevelOffset, l.yLevelOffset);
@@ -1209,6 +1208,11 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             }
             else
             {
+              std::stringstream ss;
+              ss << "l" << l.olympusLevel << "mag" << l.magnifyX << ".jpg";
+              std::string fname = ss.str();
+              std::string errMsg;
+              my_jpeg_write(fname, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, 90, &errMsg); 
               writeOk=mTif->writeImage(l.pBitmapFinal->data);
             }
           }

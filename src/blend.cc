@@ -58,7 +58,7 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
           xTail->setFree(x2 - tailStart);
           if (x3 < tailEnd)
           {
-            BlendSection *xNew = new BlendSection(x3+1);
+            BlendSection *xNew = new BlendSection(x3);
             xNew->setFree(tailEnd - x3);
             xNew->setNext(xNext);
             xTail->setNext(xNew);
@@ -83,8 +83,8 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
           }
           else if (x3 < tailEnd)
           {
-            xTail->setStart(x3+1);
-            xTail->setFree((tailEnd - x3) - 1);
+            xTail->setStart(x3);
+            xTail->setFree(tailEnd - x3);
           }
         }
         xPrevious = xTail;
@@ -123,7 +123,8 @@ void blendLevels(BlendArgs *args)
   int64_t y = args->y;
   int64_t xSrc=0;
   int64_t ySrc=0;
-  
+  int64_t ySrc2=0;
+
   if (y < 0 && y+ySize < 0)
   {
     return;
@@ -153,20 +154,22 @@ void blendLevels(BlendArgs *args)
   int64_t yStartA = floor((y + ySrc) * yFactor);
   int64_t xStartB, xFreeB, xEndB;
   BlendSection** yFreeMap = args->yFreeMap;
-  while (yStartA < yEndA)
+  while (yStartA <= yEndA)
   {
     BlendSection *xTail = yFreeMap[yStartA];
     ySrc = floor(yStartA / yFactor) - y;
+    ySrc2 = ceil(yStartA / yFactor) - y;
     while (xTail != NULL) 
     {
       xStartB = xTail->getStart();
       xFreeB = xTail->getFree();
       xEndB = xStartB + xFreeB;
-      if (xStartB > xEndA) break;
+      //if (xStartB > xEndA) break;
       if (((xStartB <= xStartA && xEndB >= xStartA) || 
-           (xStartB >= xStartA)))
+           (xStartB >= xStartA && xStartB < xEndA)))
       {
         int64_t xStartC = floor(xStartB / xFactor);
+        int64_t xStartC2 = ceil(xStartB / xFactor);
         if (xStartC < x)
         {
           xStartC = x;
@@ -181,9 +184,18 @@ void blendLevels(BlendArgs *args)
           xEndC = x+tileWidth;
         }
         int64_t xCopy = xEndC - xStartC;
-        if (xCopy == 0 && xStartC < x+tileWidth && ceil(xEndB / xFactor) >= x) xCopy = 1;
+        if (xCopy == 0 && xStartC < x+tileWidth && xEndC >= x) xCopy = 1;
         xSrc = xStartC - x;
-        safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, xCopy, 1); // copy just one row
+        int64_t yCopy = 1;
+        if (ySrc != ySrc2)
+        {
+          yCopy++;
+        }
+        if (xStartC != xStartC2)
+        {
+          xCopy++;
+        }
+        safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, xCopy, yCopy);
       }
       xTail = xTail->getNext();
     }
