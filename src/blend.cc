@@ -5,7 +5,7 @@
 #include "composite.h"
 #include "blendbkgd.h"
 
-void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap) 
+void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySize) 
 {
   if (yFreeMap == NULL) return;
   
@@ -17,9 +17,8 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap)
   }
   IniConf *pBottomConf = mConf[bottomLevel];
   int64_t bottomTotalWidth = getActualWidth(bottomLevel);
-  int64_t bottomTotalHeight = getActualHeight(bottomLevel);
 
-  for (int64_t y=0; y < bottomTotalHeight; y++)
+  for (int64_t y=0; y < ySize; y++)
   {
     BlendSection *xTail = new BlendSection(0);
     xTail->setFree(bottomTotalWidth);
@@ -131,7 +130,7 @@ void blendLevels(BlendArgs *args)
   }
   else if (y < 0)
   {
-    ySrc = y;
+    ySrc = abs(y);
   }
   if (ySrc + y > ySize) return;
 

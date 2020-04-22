@@ -946,10 +946,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     {
       if (mTotalYSections == 0)
       {
-        mTotalYSections = l.outputLvlTotalHeight;
+        mTotalYSections = mBaseTotalHeight2;
         mySubSections=new BlendSection*[mTotalYSections];
         memset(mySubSections, 0, mTotalYSections*sizeof(BlendSection*));
-        slide->blendLevelsRegionScan(mySubSections);
+        slide->blendLevelsRegionScan(mySubSections, mTotalYSections);
       }
       l.totalYSections = mTotalYSections;
       l.ySubSections=mySubSections;
