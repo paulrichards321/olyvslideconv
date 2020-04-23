@@ -236,7 +236,6 @@ typedef struct slidelevel_t
   #endif
   int64_t totalXSections, totalYSections;
   unsigned char bkgdColor;
-  BlendSection **xSubSections;
   BlendSection **ySubSections;
   safeBmp* pBitmapSrc;
   safeBmp* pBitmapL2;
@@ -544,10 +543,32 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
       std::cout << "Error writing debug file '" << l2TileName << "' errMsg: " << errMsg << std::endl;
     }
   }
-  BlendArgs blendArgs;
   safeBmpCpy(l.pBitmap4, 0, 0, l.pBitmapSrc, 0, 0, l.pBitmap4->width, l.pBitmap4->height);
-  blendArgs.x = round(l.xDest) - l.xCenter;
-  blendArgs.y = round(l.yDest) - l.yCenter;
+  xScaleResize = (double) mBaseTotalWidth / (double) l.srcTotalWidth;
+  yScaleResize = (double) mBaseTotalHeight / (double) l.srcTotalHeight;
+  BlendArgs blendArgs;
+  blendArgs.grabWidthB = l.grabWidthB;
+  blendArgs.grabHeightB = l.grabHeightB;
+  blendArgs.xSrc = l.xSrc;
+  blendArgs.ySrc = l.ySrc;
+  blendArgs.xMargin = 0;
+  blendArgs.yMargin = 0;
+  if (l.xSrc < 0)
+  {
+    blendArgs.grabWidthB += l.xSrc;
+    blendArgs.xSrc = 0;
+    blendArgs.xMargin = l.xCenter - l.inputTileWidth;
+  }
+  if (l.ySrc < 0)
+  {
+    blendArgs.grabHeightB += l.ySrc;
+    blendArgs.ySrc = 0;
+    blendArgs.yMargin = l.yCenter - l.inputTileHeight;
+  }
+  blendArgs.grabWidthB *= xScaleResize;
+  blendArgs.grabHeightB *= yScaleResize;
+  blendArgs.xSrc *= xScaleResize;
+  blendArgs.ySrc *= yScaleResize;
   blendArgs.pSafeDest = l.pBitmap4;
   blendArgs.pSafeSrcL2 = &l.safeScaledL2Mini;
   blendArgs.xFactor = l.xBlendFactor;
@@ -1190,7 +1211,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             unsigned long outSize = 0;
             std::string tileName = tileNameStreamZip.str();
             bool compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, l.optQuality, &errMsg, &outSize);
-            if (compressOk && mZip->addFile(tileName, pJpegBytes, outSize)==ZIP_OK)
+            if (compressOk && mZip->addFile(tileName, pJpegBytes, outSize)==OLY_ZIP_OK)
             {
               writeOk=true;
             }
@@ -1548,7 +1569,7 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, int opti
   else if (mOptGoogle)
   {
     mZip = new ZipFile();
-    if (mZip->openArchive(outputFile.c_str(), APPEND_STATUS_CREATE) != 0)
+    if (mZip->openArchive(outputFile.c_str(), OLY_APPEND_STATUS_CREATE) != 0)
     {
       std::cerr << "Failed to create zip file '" << outputFile << "'. Reason: " << mZip->getErrorMsg() << std::endl;
       return 2;

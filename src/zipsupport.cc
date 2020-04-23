@@ -7,14 +7,6 @@
 
 static uint32_t unix2dostime(time_t *time);
 
-#ifndef mz_dos_date 
-#if defined(dosDate) || defined(_zip12_H)
-#define mz_dos_date dosDate
-#else
-#define mz_dos_date dos_date
-#endif
-#endif
-
 int ZipFile::openArchive(std::string filename, int append)
 {
   int status = 0;

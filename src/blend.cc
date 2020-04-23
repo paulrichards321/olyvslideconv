@@ -115,91 +115,66 @@ void blendLevelsFree(BlendSection** yFreeMap, int64_t ySize)
 
 void blendLevels(BlendArgs *args)
 {
-  int64_t tileWidth = args->pSafeSrcL2->width;
-  int64_t tileHeight = args->pSafeSrcL2->height;
-  int64_t ySize = args->ySize;
-
-  int64_t x = args->x;
-  int64_t y = args->y;
-  int64_t xSrc=0;
-  int64_t ySrc=0;
-  int64_t ySrc2=0;
-
-  if (y < 0 && y+ySize < 0)
-  {
-    return;
-  }
-  else if (y < 0)
-  {
-    ySrc = abs(y);
-  }
-  if (ySrc + y > ySize) return;
-
-  if (x < 0 && abs(x) > tileWidth)
-  {
-    return;
-  }
-  else if (x < 0)
-  {
-    xSrc = abs(x);
-  }
+  double xSrc = args->xSrc;
+  double ySrc = args->ySrc;
+  double grabWidthB = args->grabWidthB;
+  double grabHeightB = args->grabHeightB;
 
   double xFactor = args->xFactor;
   double yFactor = args->yFactor;
  
-  int64_t xEndA = ceil((x + tileWidth) * xFactor);
-  int64_t yEndA = ceil((y + tileHeight) * yFactor);
-  if (yEndA > ySize) yEndA = ySize;
-  int64_t xStartA = floor((x + xSrc) * xFactor);
-  int64_t yStartA = floor((y + ySrc) * yFactor);
-  int64_t xStartB, xFreeB, xEndB;
+  int64_t xStartA = (int64_t) floor(xSrc);
+  int64_t yStartA = (int64_t) floor(ySrc);
+  int64_t xEndA = (int64_t) ceil(xSrc + grabWidthB);
+  int64_t yEndA = (int64_t) ceil(ySrc + grabHeightB);
+  if (yEndA > args->ySize) yEndA = args->ySize;
+  
+  int64_t xStartC = (int64_t) floor(xSrc / xFactor);
+  int64_t yStartC = (int64_t) floor(ySrc / yFactor);
+  
   BlendSection** yFreeMap = args->yFreeMap;
-  while (yStartA <= yEndA)
+  for (int64_t y = yStartA; y < yEndA; y++)
   {
-    BlendSection *xTail = yFreeMap[yStartA];
-    ySrc = floor(yStartA / yFactor) - y;
-    ySrc2 = ceil(yStartA / yFactor) - y;
+    BlendSection *xTail = yFreeMap[y];
+    int64_t yStartD = (int64_t) floor((double) y / yFactor);
+    int64_t yStartD2 = (int64_t) ceil((double) y / yFactor);
+    int64_t yDest = (yStartD - yStartC) + args->yMargin;
     while (xTail != NULL) 
     {
-      xStartB = xTail->getStart();
-      xFreeB = xTail->getFree();
-      xEndB = xStartB + xFreeB;
-      //if (xStartB > xEndA) break;
+      int64_t xStartB = xTail->getStart();
+      int64_t xFreeB = xTail->getFree();
+      int64_t xEndB = xStartB + xFreeB;
+      if (xStartB > xEndA) break;
       if (((xStartB <= xStartA && xEndB >= xStartA) || 
-           (xStartB >= xStartA && xStartB < xEndA)))
+           (xStartB >= xStartA)))
       {
-        int64_t xStartC = floor(xStartB / xFactor);
-        int64_t xStartC2 = ceil(xStartB / xFactor);
-        if (xStartC < x)
+        if (xStartB < xStartA)
         {
-          xStartC = x;
+          xStartB = xStartA;
         }
-        else if (xStartC > x+tileWidth)
+        int64_t xDest = (int64_t) floor(xStartB / xFactor);
+        int64_t xDest2 = (int64_t) ceil(xStartB / xFactor);
+        int64_t xDestEnd = (int64_t) ceil(xEndB / xFactor);
+        int64_t xCopy = xDestEnd - xDest;
+        if (xCopy < 0)
         {
-          xStartC = x+tileWidth;
+          xTail = xTail->getNext();
+          continue;
         }
-        int64_t xEndC = ceil(xEndB / xFactor);
-        if (xEndC > x+tileWidth)
-        {
-          xEndC = x+tileWidth;
-        }
-        int64_t xCopy = xEndC - xStartC;
-        if (xCopy == 0 && xStartC < x+tileWidth && xEndC >= x) xCopy = 1;
-        xSrc = xStartC - x;
+        xCopy++;
         int64_t yCopy = 1;
-        if (ySrc != ySrc2)
+        if (yStartD != yStartD2)
         {
           yCopy++;
         }
-        if (xStartC != xStartC2)
+        if (xDest != xDest2)
         {
           xCopy++;
         }
-        safeBmpCpy(args->pSafeDest, xSrc, ySrc, args->pSafeSrcL2, xSrc, ySrc, xCopy, yCopy);
+        xDest = (xDest - xStartC) + args->xMargin;
+        safeBmpCpy(args->pSafeDest, xDest, yDest, args->pSafeSrcL2, xDest, yDest, xCopy, yCopy);
       }
       xTail = xTail->getNext();
     }
-    yStartA++;
   }
 }
-

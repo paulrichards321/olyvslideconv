@@ -8,12 +8,24 @@
 #define OLY_DEFAULT_COMPRESS_METHOD MZ_COMPRESS_METHOD_STORE
 #define OLY_DEFAULT_COMPRESS_LEVEL  MZ_COMPRESS_LEVEL_DEFAULT
 #define OLY_ZIP_VERSION_MADE_BY     MZ_VERSION_MADEBY 
+#define OLY_ZIP_OK                  MZ_OK
+#define OLY_APPEND_STATUS_CREATE    MZ_OPEN_MODE_CREATE 
 #else
 #include <zlib.h>
 #include <zip.h>
 #define OLY_DEFAULT_COMPRESS_METHOD Z_NO_COMPRESSION
 #define OLY_DEFAULT_COMPRESS_LEVEL  Z_DEFAULT_STRATEGY
 #define OLY_ZIP_VERSION_MADE_BY     1
+#define OLY_ZIP_OK                  Z_OK
+#define OLY_APPEND_STATUS_CREATE    APPEND_STATUS_CREATE
+#endif
+
+#if !defined(mz_dos_date) && !defined(OLY_HAVE_MZ_DOS_DATE) 
+#ifdef OLY_HAVE_DOS_DATE
+#define mz_dos_date dos_date
+#else
+#define mz_dos_date dosDate
+#endif
 #endif
 
 #ifndef zipClose_64
