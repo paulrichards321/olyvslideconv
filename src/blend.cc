@@ -5,36 +5,40 @@
 #include "composite.h"
 #include "blendbkgd.h"
 
-void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySize) 
+void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySize, int orientation) 
 {
   if (yFreeMap == NULL) return;
   
-  int bottomLevel = 0;
-  while (bottomLevel < 4)
+  int baseLevel = 0;
+  while (baseLevel < 4)
   {
-    if (checkLevel(bottomLevel)) break;
-    bottomLevel++;
+    if (checkLevel(baseLevel)) break;
+    baseLevel++;
   }
-  IniConf *pBottomConf = mConf[bottomLevel];
-  int64_t bottomTotalWidth = getActualWidth(bottomLevel);
-
+  IniConf *pBaseConf = mConf[baseLevel];
+  
+  int64_t baseTotalWidth = getActualWidth(baseLevel);
+  int64_t fileWidth=pBaseConf->mPixelWidth;
+  int64_t fileHeight=pBaseConf->mPixelHeight;
+  if (orientation == 90 || orientation == 270 || orientation == -90) 
+  {
+    fileHeight=pBaseConf->mPixelWidth;
+    fileWidth=pBaseConf->mPixelHeight;
+  }
+  
   for (int64_t y=0; y < ySize; y++)
   {
     BlendSection *xTail = new BlendSection(0);
-    xTail->setFree(bottomTotalWidth);
+    xTail->setFree(baseTotalWidth);
     yFreeMap[y] = xTail;
   }
  
-  int64_t fileWidth=pBottomConf->mPixelWidth;
-  int64_t fileHeight=pBottomConf->mPixelHeight;
-  
-  for (int64_t tileNum=0; tileNum<pBottomConf->mTotalTiles; tileNum++)
+  for (int64_t tileNum=0; tileNum<pBaseConf->mTotalTiles; tileNum++)
   {
-    int64_t x2=pBottomConf->mxyArr[tileNum].mxPixel;
-    int64_t y2=pBottomConf->mxyArr[tileNum].myPixel;
+    int64_t x2=pBaseConf->mxyArr[tileNum].mxPixel;
+    int64_t y2=pBaseConf->mxyArr[tileNum].myPixel;
     int64_t x3=x2 + fileWidth;
     int64_t y3=y2 + fileHeight;
-    // first check if the x y coordinates are within the region of the bitmap
     int64_t y = y2;
     while (y < y3)
     {
@@ -44,7 +48,7 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
       if (xTail == NULL)
       {
         xTail = new BlendSection(0);
-        xTail->setFree(bottomTotalWidth);
+        xTail->setFree(baseTotalWidth);
         yFreeMap[y] = xTail;
       }
       while (xTail)
@@ -119,7 +123,7 @@ void blendLevels(BlendArgs *args)
   double ySrc = args->ySrc;
   double grabWidthB = args->grabWidthB;
   double grabHeightB = args->grabHeightB;
-
+  
   if (grabWidthB < 0 || grabHeightB < 0) return;
 
   double xFactor = args->xFactor;

@@ -236,7 +236,7 @@ public:
   double getYAdj(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->myAdj; } else { return 1; }}
   int64_t getTotalTiles(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->mTotalTiles; } else { return 0; }}
   bool drawBorder(BYTE *pBuff, int samplesPerPixel, int64_t x, int64_t y, int64_t width, int64_t height, int level);
-  void blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySize);
+  void blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySize, int orientation);
   std::vector<JpgFileXY>* getTileXYArray(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return &mConf[level]->mxyArr; } else { return NULL; }}
   bool setOrientation(int orientation, std::fstream& logFile);
 };

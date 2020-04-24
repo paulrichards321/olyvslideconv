@@ -966,10 +966,10 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     {
       if (mTotalYSections == 0)
       {
-        mTotalYSections = mBaseTotalHeight2;
+        mTotalYSections = (mOrientation == 90 || mOrientation == 270 || mOrientation == -90) ? mBaseTotalWidth2 : mBaseTotalHeight2;
         mySubSections=new BlendSection*[mTotalYSections];
         memset(mySubSections, 0, mTotalYSections*sizeof(BlendSection*));
-        slide->blendLevelsRegionScan(mySubSections, mTotalYSections);
+        slide->blendLevelsRegionScan(mySubSections, mTotalYSections, mOrientation);
       }
       l.totalYSections = mTotalYSections;
       l.ySubSections=mySubSections;
@@ -1785,7 +1785,7 @@ xstringfy(SLIDE_DEFAULT_QUALITY) "%.\n"
       {0,                   0,                  0,             0 }
     };
   
-  while((opt = getopt_long(argc, argv, "gta:bd:hj:lm:oq:rs:x:y:z", longOptions, &optIndex)) != -1)
+  while((opt = getopt_long(argc, argv, "gta:bd:hj:lm:oq:r:x:y:z", longOptions, &optIndex)) != -1)
   {
     if (optarg == NULL) optarg = emptyString;
     switch (opt)

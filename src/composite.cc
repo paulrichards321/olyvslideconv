@@ -763,11 +763,6 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     }
   }
   
-  /*
-  int highestLvl;
-  for (highestLvl = 3; highestLvl >= 1 && (mConf[highestLvl]->mFound==false || mConf[highestLvl]->mKnowStepSizes==false); highestLvl--);
-  */
-
   if (mConf[2]->mFound && mConf[2]->mKnowStepSizes)
   {
     mConf[2]->mTotalWidth = (int64_t)floor((double)(mConf[2]->mxMax - (mConf[2]->mxMin - mConf[2]->mxStepSize)) / (double) mConf[2]->mxAdj);
