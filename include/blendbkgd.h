@@ -17,8 +17,8 @@ public:
   inline void clearFree() { this->free = 0; }
   inline void incrementFree() { this->free++; }
   inline void setNext(BlendSection *value) { this->next = value; }
-  inline int getStart() { return this->start; }
-  inline int getFree() { return this->free; }
+  inline int64_t getStart() { return this->start; }
+  inline int64_t getFree() { return this->free; }
   inline BlendSection* getNext() { return this->next; }
   inline void setFree(int64_t free) { this->free = free; }
 };

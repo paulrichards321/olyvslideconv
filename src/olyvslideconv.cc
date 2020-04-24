@@ -458,7 +458,7 @@ void SlideConvertor::processGamma(SlideLevel &l)
     {
       double gamma = (double) *pBmpData2 / (double) 255.0f;
       double powed = pow(gamma, invGamma); 
-      int value = round(powed * 255);
+      int value = (int) round(powed * 255);
       if (value > 255) value=255;
       *pBmpData2 = (BYTE) value;
       pBmpData2++;
@@ -477,8 +477,8 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   safeBmp *pFinalL2 = &bitmapL2Mini;
 
   safeBmpClear(&bitmapL2Mini);
-  int64_t xSrcStartL2=round(l.xSrc * l.xScaleL2);
-  int64_t ySrcStartL2=round(l.ySrc * l.yScaleL2);
+  int64_t xSrcStartL2=(int64_t) round(l.xSrc * l.xScaleL2);
+  int64_t ySrcStartL2=(int64_t) round(l.ySrc * l.yScaleL2);
   int64_t xDestStartL2=0, yDestStartL2=0;
 
   if (xSrcStartL2 < 0)
@@ -499,7 +499,7 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   safeBmpCpy(&bitmapL2Mini, xDestStartL2, yDestStartL2, l.pBitmapL2, xSrcStartL2, ySrcStartL2, (int64_t) l.grabWidthL2, (int64_t) l.grabHeightL2);
   #ifndef USE_MAGICK
   l.pImgScaledL2Mini = new cv::Mat;
-  cv::Mat imgSrc(l.grabHeightL2, l.grabWidthL2, CV_8UC3, bitmapL2Mini.data);
+  cv::Mat imgSrc((int) l.grabHeightL2, (int) l.grabWidthL2, CV_8UC3, bitmapL2Mini.data);
   cv::Size scaledSize(l.finalOutputWidth, l.finalOutputHeight);
   double xScaleResize = (double) l.inputTileWidth / (double) l.grabWidthL2;
   double yScaleResize = (double) l.inputTileHeight / (double) l.grabHeightL2;
@@ -537,7 +537,7 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
     std::stringstream ss;
     ss << "l2.l" << l.olympusLevel << "x" << l.xSrc << "y" << l.ySrc << ".jpg";
     l2TileName=ss.str();
-    bool writeOk=my_jpeg_write(l2TileName, pFinalL2->data, pFinalL2->width, pFinalL2->height, l.optQuality, &errMsg);
+    bool writeOk=my_jpeg_write(l2TileName, pFinalL2->data, (int) pFinalL2->width, (int) pFinalL2->height, l.optQuality, &errMsg);
     if (!writeOk) 
     {
       std::cout << "Error writing debug file '" << l2TileName << "' errMsg: " << errMsg << std::endl;
@@ -605,8 +605,8 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
   {
     #ifndef USE_MAGICK
     l.pImgScaled = new cv::Mat;
-    cv::Mat imgSrc(l.grabHeightRead, l.grabWidthRead, CV_8UC3, l.pBitmapSrc->data);
-    cv::Size scaledSize(l.inputSubTileWidthRead, l.inputSubTileHeightRead);
+    cv::Mat imgSrc((int) l.grabHeightRead, (int) l.grabWidthRead, CV_8UC3, l.pBitmapSrc->data);
+    cv::Size scaledSize((int) l.inputSubTileWidthRead, (int) l.inputSubTileHeightRead);
     double xScaleResize = (double) l.inputSubTileWidthRead / (double) l.grabWidthRead;
     double yScaleResize = (double) l.inputSubTileHeightRead / (double) l.grabHeightRead;
     cv::resize(imgSrc, *l.pImgScaled, scaledSize, xScaleResize, yScaleResize, l.scaleMethod);
@@ -687,7 +687,7 @@ void SlideConvertor::processSrcTile(SlideLevel& l)
     std::stringstream ss;
     ss << "pre.l" << l.olympusLevel << "x" << l.xSrc << "y" << l.ySrc << ".jpg";
     preTileName=ss.str();
-    bool writeOk=my_jpeg_write(preTileName, l.pBitmapSrc->data, l.pBitmapSrc->width, l.pBitmapSrc->height, l.optQuality, &errMsg);
+    bool writeOk=my_jpeg_write(preTileName, l.pBitmapSrc->data, (int) l.pBitmapSrc->width, (int) l.pBitmapSrc->height, l.optQuality, &errMsg);
     if (!writeOk)
     {
       std::cout << "Error writing debug file: " << errMsg << std::endl;
@@ -816,30 +816,30 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   }
   else
   {
-    l.finalOutputWidth=l.destTotalWidth;
-    l.finalOutputHeight=l.destTotalHeight;
-    l.finalOutputWidth2=l.destTotalWidth2;
-    l.finalOutputHeight2=l.destTotalHeight2;
-    l.inputTileWidth=l.destTotalWidth2;
-    l.inputTileHeight=l.destTotalHeight2;
-    l.grabWidthA=l.srcTotalWidth;
-    l.grabHeightA=l.srcTotalHeight;
-    l.grabWidthB=l.srcTotalWidth;
-    l.grabHeightB=l.srcTotalHeight;
-    l.grabWidthL2=l.srcTotalWidthL2;
-    l.grabHeightL2=l.srcTotalHeightL2;
+    l.finalOutputWidth=(int) l.destTotalWidth;
+    l.finalOutputHeight=(int) l.destTotalHeight;
+    l.finalOutputWidth2=(int) l.destTotalWidth2;
+    l.finalOutputHeight2=(int) l.destTotalHeight2;
+    l.inputTileWidth=(int) l.destTotalWidth2;
+    l.inputTileHeight=(int) l.destTotalHeight2;
+    l.grabWidthA=(double) l.srcTotalWidth;
+    l.grabHeightA=(double) l.srcTotalHeight;
+    l.grabWidthB=(double) l.srcTotalWidth;
+    l.grabHeightB=(double) l.srcTotalHeight;
+    l.grabWidthL2=(double) l.srcTotalWidthL2;
+    l.grabHeightL2=(double) l.srcTotalHeightL2;
   }
   l.totalSubTiles = 1;
-  int64_t totalGrabBytes = l.grabWidthB * l.grabHeightB * 3;
+  int64_t totalGrabBytes = (int64_t) round(l.grabWidthB) * (int64_t) round(l.grabHeightB) * 3;
   if (totalGrabBytes > l.optMaxMem)
   {
     do
     {
       l.totalSubTiles *= 2;
-      totalGrabBytes = ceil((double) l.grabWidthB / (double) l.totalSubTiles) * ceil((double) l.grabHeightB / (double) l.totalSubTiles) * 3;
+      totalGrabBytes = (int64_t) (ceil((double) l.grabWidthB / (double) l.totalSubTiles) * ceil((double) l.grabHeightB / (double) l.totalSubTiles) * 3);
     }
     while (totalGrabBytes > l.optMaxMem);
-    std::cout << "Using max memory " << (totalGrabBytes / (1024 * 1024)) << "mb max width=" << l.grabWidthB << " x height=" << l.grabHeightB << " for pixel resizer." << std::endl;
+    std::cout << "Using max memory " << (totalGrabBytes / (1024 * 1024)) << "mb max width=" << round(l.grabWidthB) << " x height=" << round(l.grabHeightB) << " for pixel resizer." << std::endl;
     l.grabWidthA = l.grabWidthB / (double) l.totalSubTiles;
     l.grabHeightA = l.grabHeightB / (double) l.totalSubTiles;
   } 
@@ -850,12 +850,12 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.xStartTile = l.xLevelOffset / 256;
     l.xCenter = l.xLevelOffset % 256;
     l.xStartSrc = (double)(-l.xCenter) * l.xScale;
-    l.outputLvlTotalWidth = ceil((double) (l.xCenter + l.destTotalWidth) / 256.0) * 256;
+    l.outputLvlTotalWidth = (int64_t) ceil((double) (l.xCenter + l.destTotalWidth) / 256.0) * 256;
 
     l.yTileMap = l.yLevelOffset / 256;
     l.yCenter = l.yLevelOffset % 256;
     l.yStartSrc = (double)(-l.yCenter) * l.yScale;
-    l.outputLvlTotalHeight = ceil((double) (l.yCenter + l.destTotalHeight) / 256.0) * 256;
+    l.outputLvlTotalHeight = (int64_t) ceil((double) (l.yCenter + l.destTotalHeight) / 256.0) * 256;
   }
   else
   {
@@ -868,8 +868,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     l.yStartSrc = 0.0;
     if (l.tiled)
     {
-      l.outputLvlTotalWidth = ceil((double) l.destTotalWidth / l.inputTileWidth) * l.inputTileWidth;
-      l.outputLvlTotalHeight = ceil((double) l.destTotalHeight / l.inputTileHeight) * l.inputTileHeight;
+      l.outputLvlTotalWidth = (int64_t) ceil((double) l.destTotalWidth / l.inputTileWidth) * l.inputTileWidth;
+      l.outputLvlTotalHeight = (int64_t) ceil((double) l.destTotalHeight / l.inputTileHeight) * l.inputTileHeight;
     }
     else
     {
@@ -879,8 +879,8 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
   }
   if (l.tiled)
   {
-    l.xEndTile = ceil((double) l.outputLvlTotalWidth / (double) l.inputTileWidth);
-    l.yEndTile = ceil((double) l.outputLvlTotalHeight / (double) l.inputTileHeight);
+    l.xEndTile = (int64_t) ceil((double) l.outputLvlTotalWidth / (double) l.inputTileWidth);
+    l.yEndTile = (int64_t) ceil((double) l.outputLvlTotalHeight / (double) l.inputTileHeight);
   }
   else
   {
@@ -935,7 +935,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
       }
     }
     std::string strAttributes=oss.str();
-    if (mTif->setAttributes(3, 8, l.destTotalWidth2, l.destTotalHeight2, (l.tiled==true ? l.finalOutputWidth : 0), (l.tiled==true ? l.finalOutputHeight : 0), 1, l.optQuality)==false || mTif->setDescription(strAttributes, mBaseTotalWidth2, mBaseTotalHeight2)==false)
+    if (mTif->setAttributes(3, 8, (int) l.destTotalWidth2, (int) l.destTotalHeight2, (l.tiled==true ? l.finalOutputWidth : 0), (l.tiled==true ? l.finalOutputHeight : 0), 1, l.optQuality)==false || mTif->setDescription(strAttributes, (int) mBaseTotalWidth2, (int) mBaseTotalHeight2)==false)
     {
       std::string errMsg;
       mTif->getErrMsg(errMsg);
@@ -1119,22 +1119,22 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             if (l.xSrcRead + grabWidthReadDec > (double) l.srcTotalWidth)
             {
               grabWidthReadDec = (double) l.srcTotalWidth - l.xSrcRead;
-              l.inputSubTileWidthRead = round(grabWidthReadDec * l.xScaleReverse);
+              l.inputSubTileWidthRead = (int64_t) round(grabWidthReadDec * l.xScaleReverse);
             }
             if (l.ySrcRead + grabHeightReadDec > (double) l.srcTotalHeight)
             {
               grabHeightReadDec = (double) l.srcTotalHeight - l.ySrcRead;
-              l.inputSubTileHeightRead = round(grabHeightReadDec * l.yScaleReverse);
+              l.inputSubTileHeightRead = (int64_t) round(grabHeightReadDec * l.yScaleReverse);
             }
             if (l.xSrc < 0.0 || l.ySrc < 0.0)
             {
-              l.inputSubTileWidthRead = round(grabWidthReadDec * l.xScaleReverse);
-              l.inputSubTileHeightRead = round(grabHeightReadDec * l.yScaleReverse);
+              l.inputSubTileWidthRead = (int64_t) round(grabWidthReadDec * l.xScaleReverse);
+              l.inputSubTileHeightRead = (int64_t) round(grabHeightReadDec * l.yScaleReverse);
             }
-            l.grabWidthRead = round(grabWidthReadDec);
-            l.grabHeightRead = round(grabHeightReadDec);
+            l.grabWidthRead = (int64_t) round(grabWidthReadDec);
+            l.grabHeightRead = (int64_t) round(grabHeightReadDec);
             if (l.grabWidthRead <= 0 || l.grabHeightRead <= 0) continue;
-            bool allocOk = slide->allocate(&l.subTileBitmap, olympusLevel, round(l.xSrcRead), (l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
+            bool allocOk = slide->allocate(&l.subTileBitmap, olympusLevel, (int64_t) round(l.xSrcRead), (int64_t) round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false);
             if (allocOk == false) continue; 
             l.pBitmapSrc = &l.subTileBitmap;
             l.pBitmapFinal = &l.subTileBitmap;
@@ -1151,7 +1151,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             {
               *logFile << " slide->read(x=" << l.xSrcRead << " y=" << l.ySrcRead << " grabWidthA=" << l.grabWidthRead << " grabHeightA=" << l.grabHeightRead << " olympusLevel=" << l.olympusLevel << "); " << std::endl;
             }
-            readOkSrc = slide->read(l.pBitmapSrc->data, l.olympusLevel, l.readDirection, l.readZLevel, round(l.xSrcRead), round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false, &l.readWidth, &l.readHeight);
+            readOkSrc = slide->read(l.pBitmapSrc->data, l.olympusLevel, l.readDirection, l.readZLevel, (int64_t) round(l.xSrcRead), (int64_t) round(l.ySrcRead), l.grabWidthRead, l.grabHeightRead, false, &l.readWidth, &l.readHeight);
             if (readOkSrc)
             {
               readSubTiles++;
@@ -1210,7 +1210,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
             BYTE* pJpegBytes = NULL;
             unsigned long outSize = 0;
             std::string tileName = tileNameStreamZip.str();
-            bool compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, l.optQuality, &errMsg, &outSize);
+            bool compressOk=my_jpeg_compress(&pJpegBytes, l.pBitmapFinal->data, (int) l.pBitmapFinal->width, (int) l.pBitmapFinal->height, l.optQuality, &errMsg, &outSize);
             if (compressOk && mZip->addFile(tileName, pJpegBytes, outSize)==OLY_ZIP_OK)
             {
               writeOk=true;
@@ -1225,7 +1225,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
           {
             if (l.tiled)
             {
-              writeOk=mTif->writeEncodedTile(l.pBitmapFinal->data, l.xDest, l.yDest, 1);
+              writeOk=mTif->writeEncodedTile(l.pBitmapFinal->data, (unsigned int) l.xDest, (unsigned int) l.yDest, 1);
             }
             else
             {
@@ -1233,7 +1233,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
               ss << "l" << l.olympusLevel << "mag" << l.magnifyX << ".jpg";
               std::string fname = ss.str();
               std::string errMsg;
-              my_jpeg_write(fname, l.pBitmapFinal->data, l.pBitmapFinal->width, l.pBitmapFinal->height, 90, &errMsg); 
+              my_jpeg_write(fname, l.pBitmapFinal->data, (int) l.pBitmapFinal->width, (int) l.pBitmapFinal->height, 90, &errMsg); 
               writeOk=mTif->writeImage(l.pBitmapFinal->data);
             }
           }
@@ -1472,7 +1472,7 @@ int SlideConvertor::convert2Gmap()
   //****************************************************************
   // Output each level, each level is 2^level size 
   //****************************************************************
-  int64_t divisor = 1 << mTopOutLevel;
+  int divisor = 1 << mTopOutLevel;
   int outLevel = 0;
 
   while (outLevel <= mTopOutLevel && error==0)
@@ -1587,9 +1587,9 @@ int SlideConvertor::open(std::string inputFile, std::string outputFile, int opti
     if (slide->checkLevel(mBaseLevel))
     {
       mBaseTotalWidth = slide->getActualWidth(mBaseLevel);
-      mBaseTotalWidth2 = ceil((double) mBaseTotalWidth / (double) 256.0) * 256;
+      mBaseTotalWidth2 = (int64_t) ceil((double) mBaseTotalWidth / (double) 256.0) * 256;
       mBaseTotalHeight = slide->getActualHeight(mBaseLevel);
-      mBaseTotalHeight2 = ceil((double) mBaseTotalHeight / (double) 256.0) * 256;
+      mBaseTotalHeight2 = (int64_t) ceil((double) mBaseTotalHeight / (double) 256.0) * 256;
       break;
     }
   }
@@ -1685,7 +1685,7 @@ int main(int argc, char** argv)
   int optZStack = getBoolOpt(SLIDE_DEFAULT_ZSTACK);
   int optQuality = SLIDE_DEFAULT_QUALITY;
   int optDebug = SLIDE_DEFAULT_DEBUG;
-  int64_t optMaxJpegCache = SLIDE_DEFAULT_MAX_JPEG_CACHE;
+  int optMaxJpegCache = SLIDE_DEFAULT_MAX_JPEG_CACHE;
   int64_t optMaxMem = SLIDE_DEFAULT_MAX_MEM; 
   double optGamma = 1.0f;
   int optRotate = 0;

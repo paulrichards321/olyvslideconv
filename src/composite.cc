@@ -556,7 +556,7 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     {
       if (fileNum>0 && mConf[fileNum-1]->mFound && mConf[fileNum-1]->myStepSize>0)
       {
-        pConf->myStepSize = (double) (mConf[fileNum-1]->myStepSize*4);
+        pConf->myStepSize = (int64_t) (mConf[fileNum-1]->myStepSize*4);
         pConf->myKnowStepSize = true;
       }
       else
@@ -587,10 +587,10 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
       logFile << "fileName=" << pConf->mname << " xDiffMin=" << pConf->mxDiffMin << " xStepSize=" << pConf->mxStepSize << " xMin=" << pConf->mxMin << " xMax=" << pConf->mxMax << " xAxis=" << pConf->mxAxis << std::endl;
       logFile << "fileName=" << pConf->mname << " yDiffMin=" << pConf->myDiffMin << " yStepSize=" << pConf->myStepSize << " yMin=" << pConf->myMin << " yMax=" << pConf->myMax << " yAxis=" << pConf->myAxis << std::endl;
     }
-    pConf->mOrgDetailedWidth = (pConf->mxMax - (pConf->mxMin - pConf->mxStepSize)) / pConf->mxAdj;
+    pConf->mOrgDetailedWidth = (int64_t) floor((pConf->mxMax - (pConf->mxMin - pConf->mxStepSize)) / pConf->mxAdj);
     pConf->mDetailedWidth = pConf->mOrgDetailedWidth;
 
-    pConf->mOrgDetailedHeight = (pConf->myMax - (pConf->myMin - pConf->myStepSize)) / pConf->myAdj;
+    pConf->mOrgDetailedHeight = (int64_t) floor((pConf->myMax - (pConf->myMin - pConf->myStepSize)) / pConf->myAdj);
     pConf->mDetailedHeight = pConf->mOrgDetailedHeight;
 
     if ((yMinSet==false || pConf->myMin < myMin) && fileNum < 3)
@@ -770,42 +770,42 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
 
   if (mConf[2]->mFound && mConf[2]->mKnowStepSizes)
   {
-    mConf[2]->mTotalWidth = (double)(mConf[2]->mxMax - (mConf[2]->mxMin - mConf[2]->mxStepSize)) / (double) mConf[2]->mxAdj;
-    mConf[2]->mTotalHeight = (double)(mConf[2]->myMax - (mConf[2]->myMin - mConf[2]->myStepSize)) / (double) mConf[2]->myAdj;
+    mConf[2]->mTotalWidth = (int64_t)floor((double)(mConf[2]->mxMax - (mConf[2]->mxMin - mConf[2]->mxStepSize)) / (double) mConf[2]->mxAdj);
+    mConf[2]->mTotalHeight = (int64_t)floor((double)(mConf[2]->myMax - (mConf[2]->myMin - mConf[2]->myStepSize)) / (double) mConf[2]->myAdj);
 
-    mConf[3]->mTotalWidth = mConf[2]->mTotalWidth * multiX[2];
-    mConf[3]->mTotalHeight = mConf[2]->mTotalHeight * multiY[2];
+    mConf[3]->mTotalWidth = (int64_t) floor(mConf[2]->mTotalWidth * multiX[2]);
+    mConf[3]->mTotalHeight = (int64_t) floor(mConf[2]->mTotalHeight * multiY[2]);
 
-    mConf[1]->mTotalWidth = mConf[2]->mTotalWidth * multiX[1];
-    mConf[1]->mTotalHeight = mConf[2]->mTotalHeight * multiY[1];
+    mConf[1]->mTotalWidth = (int64_t) floor(mConf[2]->mTotalWidth * multiX[1]);
+    mConf[1]->mTotalHeight = (int64_t) floor(mConf[2]->mTotalHeight * multiY[1]);
 
-    mConf[0]->mTotalWidth = mConf[2]->mTotalWidth * multiX[0];
-    mConf[0]->mTotalHeight = mConf[2]->mTotalHeight * multiY[0];
+    mConf[0]->mTotalWidth = (int64_t) floor(mConf[2]->mTotalWidth * multiX[0]);
+    mConf[0]->mTotalHeight = (int64_t) floor(mConf[2]->mTotalHeight * multiY[0]);
   }
   else if (mConf[3]->mFound && mConf[3]->mKnowStepSizes)
   {
-    mConf[3]->mTotalWidth = (double)(mConf[3]->mxMax - (mConf[3]->mxMin - mConf[3]->mxStepSize)) / (double) mConf[3]->mxAdj;
-    mConf[3]->mTotalHeight = (double)(mConf[3]->myMax - (mConf[3]->myMin - mConf[3]->myStepSize)) / (double) mConf[3]->myAdj;
+    mConf[3]->mTotalWidth = (int64_t) floor((double)(mConf[3]->mxMax - (mConf[3]->mxMin - mConf[3]->mxStepSize)) / (double) mConf[3]->mxAdj);
+    mConf[3]->mTotalHeight = (int64_t) floor((double)(mConf[3]->myMax - (mConf[3]->myMin - mConf[3]->myStepSize)) / (double) mConf[3]->myAdj);
 
-    mConf[1]->mTotalWidth = mConf[3]->mTotalWidth * multiX[1];
-    mConf[1]->mTotalHeight = mConf[3]->mTotalHeight * multiY[1];
-    mConf[0]->mTotalWidth = mConf[3]->mTotalWidth * multiX[0];
-    mConf[0]->mTotalHeight = mConf[3]->mTotalHeight * multiY[0];
+    mConf[1]->mTotalWidth = (int64_t) floor(mConf[3]->mTotalWidth * multiX[1]);
+    mConf[1]->mTotalHeight = (int64_t) floor(mConf[3]->mTotalHeight * multiY[1]);
+    mConf[0]->mTotalWidth = (int64_t) floor(mConf[3]->mTotalWidth * multiX[0]);
+    mConf[0]->mTotalHeight = (int64_t) floor(mConf[3]->mTotalHeight * multiY[0]);
   }
   else if (mConf[1]->mFound && mConf[1]->mKnowStepSizes)
   {
-    mConf[1]->mTotalWidth = (double)(mConf[1]->mxMax - (mConf[1]->mxMin - mConf[1]->mxStepSize)) / (double) mConf[1]->mxAdj;
-    mConf[1]->mTotalHeight = (double)(mConf[1]->myMax - (mConf[1]->myMin - mConf[1]->myStepSize)) / (double) mConf[1]->myAdj;
+    mConf[1]->mTotalWidth = (int64_t) floor((double)(mConf[1]->mxMax - (mConf[1]->mxMin - mConf[1]->mxStepSize)) / (double) mConf[1]->mxAdj);
+    mConf[1]->mTotalHeight = (int64_t) floor((double)(mConf[1]->myMax - (mConf[1]->myMin - mConf[1]->myStepSize)) / (double) mConf[1]->myAdj);
 
-    mConf[0]->mTotalWidth = mConf[1]->mTotalWidth * multiX[0];
-    mConf[0]->mTotalHeight = mConf[1]->mTotalHeight * multiY[0];
+    mConf[0]->mTotalWidth = (int64_t) floor(mConf[1]->mTotalWidth * multiX[0]);
+    mConf[0]->mTotalHeight = (int64_t) floor(mConf[1]->mTotalHeight * multiY[0]);
   }
   else
   {
     for (int fileNum=0; fileNum < 4; fileNum++)
     {
-      mConf[fileNum]->mTotalWidth = (double)(mConf[fileNum]->mxMax - (mConf[fileNum]->mxMin - mConf[fileNum]->mxStepSize)) / (double) mConf[fileNum]->mxAdj;
-      mConf[fileNum]->mTotalHeight = (double)(mConf[fileNum]->myMax - (mConf[fileNum]->myMin - mConf[fileNum]->myStepSize)) / (double) mConf[fileNum]->myAdj;
+      mConf[fileNum]->mTotalWidth = (int64_t) floor((double)(mConf[fileNum]->mxMax - (mConf[fileNum]->mxMin - mConf[fileNum]->mxStepSize)) / (double) mConf[fileNum]->mxAdj);
+      mConf[fileNum]->mTotalHeight = (int64_t) floor((double)(mConf[fileNum]->myMax - (mConf[fileNum]->myMin - mConf[fileNum]->myStepSize)) / (double) mConf[fileNum]->myAdj);
     }
   }
 
@@ -895,8 +895,8 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     double higherRatioX = (double) pHigherConf->mPixelWidth / (double) pHigherConf->mxStepSize; 
     double higherRatioY = (double) pHigherConf->mPixelHeight / (double) pHigherConf->myStepSize;
 
-    double higherMinBaseX = pLowerConf->mxAxis - pHigherConf->mxMax;
-    double higherMinBaseY = pLowerConf->myAxis - pHigherConf->myMax;
+    double higherMinBaseX = (double) (pLowerConf->mxAxis - pHigherConf->mxMax);
+    double higherMinBaseY = (double) (pLowerConf->myAxis - pHigherConf->myMax);
 
     if (mConf[0]->mFound)
     {
@@ -1025,8 +1025,8 @@ bool CompositeSlide::open(const std::string& srcFileName, int options, int orien
     jpgxy.mBaseFileName = previewFileName;
     jpgxy.mxPixel=0;
     jpgxy.myPixel=0;
-    jpgxy.mx=0.0;
-    jpgxy.my=0.0;
+    jpgxy.mx=0;
+    jpgxy.my=0;
     previewConf->mFound = true;
     previewConf->mxyArr.push_back(jpgxy);
     previewConf->mIsPreviewSlide = true;
@@ -1161,10 +1161,10 @@ bool CompositeSlide::findXYOffset(int lowerLevel, int higherLevel, int64_t *best
     logFile << std::endl;
   }
 
-  *bestXOffset0 = (bestXOffset * xMulti0) + ((mConf[1]->mxMax - mConf[0]->mxMax) / mConf[0]->mxAdj);
-  *bestYOffset0 = (bestYOffset * yMulti0) + ((mConf[1]->myMax - mConf[0]->myMax) / mConf[0]->myAdj);
-  *bestXOffset1 = bestXOffset * xMulti1;
-  *bestYOffset1 = bestYOffset * yMulti1;
+  *bestXOffset0 = (int64_t) floor((double)(bestXOffset * xMulti0) + ((mConf[1]->mxMax - mConf[0]->mxMax) / mConf[0]->mxAdj));
+  *bestYOffset0 = (int64_t) floor((double)(bestYOffset * yMulti0) + ((mConf[1]->myMax - mConf[0]->myMax) / mConf[0]->myAdj));
+  *bestXOffset1 = (int64_t) floor(bestXOffset * xMulti1);
+  *bestYOffset1 = (int64_t) floor(bestYOffset * yMulti1);
  
   return true;
 }
@@ -1305,7 +1305,7 @@ bool CompositeSlide::loadFullImage(int level, safeBmp **ptpFullImage, cv::Mat **
     simulatedWidth = simulatedHeightOld;
   }
  
-  cv::Mat *pImgComplete = new cv::Mat(simulatedHeight, simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
+  cv::Mat *pImgComplete = new cv::Mat((int) simulatedHeight, (int) simulatedWidth, CV_8UC3, cv::Scalar(255,255,255));
 
   for (int64_t i=0; i < pConf->mTotalTiles; i++)
   {
@@ -1390,9 +1390,9 @@ bool CompositeSlide::loadFullImage(int level, safeBmp **ptpFullImage, cv::Mat **
     }
     if (cols > 0 && rows > 0)
     {
-      cv::Rect roi(0, 0, cols, rows);
+      cv::Rect roi(0, 0, (int) cols, (int) rows);
       cv::Mat srcRoi(*imgPart, roi);
-      cv::Rect roi2(xPixelNew, yPixelNew, cols, rows);
+      cv::Rect roi2((int) xPixelNew, (int) yPixelNew, (int) cols, (int) rows);
       cv::Mat destRoi(*pImgComplete, roi2); 
       srcRoi.copyTo(destRoi);
       srcRoi.release();

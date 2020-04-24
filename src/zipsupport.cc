@@ -78,7 +78,7 @@ int ZipFile::addFile(std::string filename, BYTE* buff, int64_t size)
 
   if (status == ZIP_OK)
   {
-    status = zipWriteInFileInZip(mZipArchive, buff, size);
+    status = zipWriteInFileInZip(mZipArchive, buff, (int) size);
     if (status == ZIP_OK)
     {
       status = zipCloseFileInZip64(mZipArchive);

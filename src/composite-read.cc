@@ -114,7 +114,7 @@ bool CompositeSlide::read(BYTE *pBmp, int level, int direction, int zLevel, int6
       */
       std::string& fileName=(direction > 0 ? pConf->mxyArr[tileNum].mFileName[direction-1][zLevel] : pConf->mxyArr[tileNum].mBaseFileName);
       pjpg=jpgCache.open(fileName, mOrientation, setGrayScale);
-      if (pjpg->isValidObject() && pjpg->read(xRead, yRead, widthGrab, heightGrab))
+      if (pjpg->isValidObject() && pjpg->read((int) xRead, (int) yRead, (int) widthGrab, (int) heightGrab))
       {
         int64_t jpgCX=pjpg->getReadWidth();
         int64_t jpgCY=pjpg->getReadHeight();

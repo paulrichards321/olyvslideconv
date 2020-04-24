@@ -196,7 +196,7 @@ bool Image::rotateAlgorithm1()
   int64_t destPaddedScanlineBits = destUnpaddedScanlineBits;
   while (destPaddedScanlineBits & (sizeof(uint64_t)*8-1)) destPaddedScanlineBits++;
 
-  mbitmapSize = int64_t(ceil(double(destPaddedScanlineBits)/8)) * newHeight;
+  mbitmapSize = (int) (ceil(double(destPaddedScanlineBits)/8) * newHeight);
 
   BYTE *pNewBitmap = new(std::nothrow) BYTE[mbitmapSize+sizeof(uint64_t)];
   if (pNewBitmap == NULL) 
@@ -253,8 +253,8 @@ bool Image::rotateAlgorithm1()
   }
  
   // set new geometry
-  mactualWidth = newWidth;
-  mactualHeight = newHeight;
+  mactualWidth = (int) newWidth;
+  mactualHeight = (int) newHeight;
   calcRenderedDims();
   //pbmInfo->bmiHeader.biWidth = actualWidth;
   //pbmInfo->bmiHeader.biHeight = (upsideDown) ? actualHeight : -(int) actualHeight;
@@ -294,7 +294,7 @@ bool Image::rotateAlgorithm2()
   int64_t destPaddedScanlineBits = destUnpaddedScanlineBits;
   while (destPaddedScanlineBits & (sizeof(uint64_t)*8-1)) destPaddedScanlineBits++;
 
-  mbitmapSize = int64_t(ceil(double(destPaddedScanlineBits)/8)) * newHeight;
+  mbitmapSize = (int) (ceil(double(destPaddedScanlineBits)/8) * newHeight);
 
   BYTE* pNewBitmap = new(std::nothrow) BYTE[mbitmapSize+sizeof(uint64_t)];
   if (pNewBitmap == NULL) 
@@ -343,8 +343,8 @@ bool Image::rotateAlgorithm2()
   }
  
   // set new geometry
-  mactualWidth = newWidth;
-  mactualHeight = newHeight;
+  mactualWidth = (int) newWidth;
+  mactualHeight = (int) newHeight;
   calcRenderedDims();
   //pbmInfo->bmiHeader.biWidth = actualWidth;
   //pbmInfo->bmiHeader.biHeight = (upsideDown) ? actualHeight : -(int) actualHeight;
@@ -484,7 +484,7 @@ void RGBALineToRGB(BYTE *pRGBA, int64_t RGBALineSize, BYTE *pRGB, int64_t RGBLin
        * affect it.
        */
       alpha = (float) ialpha / 255;
-      compalpha = 1.0 - alpha;
+      compalpha = (float) 1.0 - (float) alpha;
 
       for (int i = 0; i < 3; i++) {
         /*
@@ -532,7 +532,7 @@ bool Image::rotate24bitCW()
   int64_t destUnpaddedScanlineBytes = newWidth * 3;
   int64_t destPaddedScanlineBytes = destUnpaddedScanlineBytes;
   while ((destPaddedScanlineBytes & 3) != 0) destPaddedScanlineBytes++;
-  mbitmapSize = destPaddedScanlineBytes * newHeight;
+  mbitmapSize = (int) (destPaddedScanlineBytes * newHeight);
 
   BYTE* pNewBitmap = new(std::nothrow) BYTE[mbitmapSize];
   if (pNewBitmap == NULL) 
@@ -559,8 +559,8 @@ bool Image::rotate24bitCW()
   }
  
   // set new geometry
-  mactualWidth = newWidth;
-  mactualHeight = newHeight;
+  mactualWidth = (int) newWidth;
+  mactualHeight = (int) newHeight;
   calcRenderedDims();
 //  pbmInfo->bmiHeader.biWidth = actualWidth;
 //  pbmInfo->bmiHeader.biHeight = (upsideDown) ? actualHeight : -(int) actualHeight;
@@ -589,7 +589,7 @@ bool Image::rotate24bitCCW()
   int64_t destUnpaddedScanlineBytes = newWidth * 3;
   int64_t destPaddedScanlineBytes = destUnpaddedScanlineBytes;
   while ((destPaddedScanlineBytes & 3) != 0) destPaddedScanlineBytes++;
-  mbitmapSize = destPaddedScanlineBytes * newHeight;
+  mbitmapSize = (int) (destPaddedScanlineBytes * newHeight);
 
   BYTE* pNewBitmap = new(std::nothrow) BYTE[mbitmapSize];
   if (pNewBitmap == NULL) 
@@ -616,8 +616,8 @@ bool Image::rotate24bitCCW()
   }
  
   // set new geometry
-  mactualWidth = newWidth;
-  mactualHeight = newHeight;
+  mactualWidth = (int) newWidth;
+  mactualHeight = (int) newHeight;
   calcRenderedDims();
 //  pbmInfo->bmiHeader.biWidth = actualWidth;
 //  pbmInfo->bmiHeader.biHeight = (upsideDown) ? actualHeight : -(int) actualHeight;

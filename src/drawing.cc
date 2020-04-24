@@ -192,7 +192,7 @@ bool CompositeSlide::drawBorder(BYTE *pBmp, int samplesPerPixel, int64_t x, int6
         {
           thickness=width - xLineMark;
         }
-        drawYHighlight(pBmp, samplesPerPixel, xLineMark, yWrite1, yWrite2, width, height, thickness, 1);
+        drawYHighlight(pBmp, samplesPerPixel, xLineMark, yWrite1, yWrite2, width, height, (int) thickness, 1);
       }
       if (y4 < y5)
       {
@@ -225,7 +225,7 @@ bool CompositeSlide::drawBorder(BYTE *pBmp, int samplesPerPixel, int64_t x, int6
         {
           thickness=width - xLineMark;
         }
-        drawYHighlight(pBmp, samplesPerPixel, xLineMark, yWrite1, yWrite2, width, height, thickness, 1);
+        drawYHighlight(pBmp, samplesPerPixel, xLineMark, yWrite1, yWrite2, width, height, (int) thickness, 1);
       }
       if (x2 < x3)
       {
@@ -261,7 +261,7 @@ bool CompositeSlide::drawBorder(BYTE *pBmp, int samplesPerPixel, int64_t x, int6
           thickness=height - yLineMark;
         }
         //logFile << " XHighlight yLineMark: " << yLineMark << " xWrite1: " << xWrite1 << " xWrite2: " << xWrite2 << " width: " << width << " height: " << height << " thickness: " << thickness << std::endl;
-        drawXHighlight(pBmp, samplesPerPixel, yLineMark, xWrite1, xWrite2, width, height, thickness, 1);
+        drawXHighlight(pBmp, samplesPerPixel, yLineMark, xWrite1, xWrite2, width, height, (int) thickness, 1);
       }
       if (x4 < x5)
       {
@@ -295,7 +295,7 @@ bool CompositeSlide::drawBorder(BYTE *pBmp, int samplesPerPixel, int64_t x, int6
           thickness=height - yLineMark;
         }  
         //logFile << " XHighlight yLineMark: " << yLineMark << " xWrite1: " << xWrite1 << " xWrite2: " << xWrite2 << " width: " << width << " height: " << height << " thickness: " << thickness << std::endl;
-        drawXHighlight(pBmp, samplesPerPixel, yLineMark, xWrite1, xWrite2, width, height, thickness, 1);
+        drawXHighlight(pBmp, samplesPerPixel, yLineMark, xWrite1, xWrite2, width, height, (int) thickness, 1);
       }
     }
   }

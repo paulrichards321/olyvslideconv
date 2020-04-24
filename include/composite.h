@@ -228,8 +228,8 @@ public:
   int getQuality(size_t level) { if (mValidObject == true && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->mQuality; } else { return 0; } }
   long long getBaseWidth() { return (mValidObject == true ? mbaseWidth : 0); }
   long long getBaseHeight() { return (mValidObject == true ? mbaseHeight : 0); }
-  int getPixelWidth(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mPixelWidth : 0); }
-  int getPixelHeight(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mPixelHeight : 0); }
+  int64_t getPixelWidth(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mPixelWidth : 0); }
+  int64_t getPixelHeight(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mPixelHeight : 0); }
   int64_t getActualWidth(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mTotalWidth : 0); }
   int64_t getActualHeight(size_t level) { return (mValidObject == true && level < mConf.size() && mConf[level]->mFound ? mConf[level]->mTotalHeight : 0); }
   double getXAdj(size_t level) { if (mValidObject && level < mConf.size() && mConf[level]->mFound) { return mConf[level]->mxAdj; } else { return 1; }}

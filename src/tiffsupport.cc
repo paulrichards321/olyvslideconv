@@ -327,7 +327,7 @@ bool Tiff::load(const std::string& newFileName)
           TIFFReadCustomDirectory(mtif, custom_offset, infoarray);
       }
       */
-      tileSize = TIFFTileSize(mtif);
+      tileSize = (uint32) TIFFTileSize(mtif);
       mactualWidth = tifImageWidth;
       mactualHeight = tifImageLength;
       calcRenderedDims();
