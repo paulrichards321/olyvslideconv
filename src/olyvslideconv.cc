@@ -557,13 +557,13 @@ void SlideConvertor::blendL2WithSrc(SlideLevel &l)
   {
     blendArgs.grabWidthB += l.xSrc;
     blendArgs.xSrc = 0;
-    blendArgs.xMargin = l.xCenter - l.inputTileWidth;
+    blendArgs.xMargin = l.xCenter;
   }
   if (l.ySrc < 0)
   {
     blendArgs.grabHeightB += l.ySrc;
     blendArgs.ySrc = 0;
-    blendArgs.yMargin = l.yCenter - l.inputTileHeight;
+    blendArgs.yMargin = l.yCenter;
   }
   blendArgs.grabWidthB *= xScaleResize;
   blendArgs.grabHeightB *= yScaleResize;
@@ -966,7 +966,7 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
     {
       if (mTotalYSections == 0)
       {
-        mTotalYSections = (mOrientation == 90 || mOrientation == 270 || mOrientation == -90) ? mBaseTotalWidth2 : mBaseTotalHeight2;
+        mTotalYSections = mBaseTotalHeight2;
         mySubSections=new BlendSection*[mTotalYSections];
         memset(mySubSections, 0, mTotalYSections*sizeof(BlendSection*));
         slide->blendLevelsRegionScan(mySubSections, mTotalYSections, mOrientation);

@@ -124,7 +124,7 @@ void blendLevels(BlendArgs *args)
   double grabWidthB = args->grabWidthB;
   double grabHeightB = args->grabHeightB;
   
-  if (grabWidthB < 0 || grabHeightB < 0) return;
+  if (grabWidthB < 0.0 || grabHeightB < 0.0) return;
 
   double xFactor = args->xFactor;
   double yFactor = args->yFactor;
@@ -135,21 +135,19 @@ void blendLevels(BlendArgs *args)
   int64_t yEndA = (int64_t) ceil(ySrc + grabHeightB);
   if (yEndA > args->ySize) yEndA = args->ySize;
   
-  int64_t xStartC = (int64_t) floor(xSrc / xFactor) - 1;
+  int64_t xStartC = (int64_t) floor(xSrc / xFactor);
   int64_t yStartC = (int64_t) floor(ySrc / yFactor);
-  
   BlendSection** yFreeMap = args->yFreeMap;
   for (int64_t y = yStartA; y < yEndA; y++)
   {
     BlendSection *xTail = yFreeMap[y];
     int64_t yStartD = (int64_t) floor((double) y / yFactor);
-//    int64_t yStartD2 = (int64_t) ceil((double) y / yFactor);
-    int64_t yDest = (yStartD - yStartC) + args->yMargin - 1;
-    bool yIncrement = true;
-    if (yDest < 0) 
+    int64_t yDest = (yStartD - yStartC) + args->yMargin;
+    bool yIncrement = false;
+    if (yDest > 0) 
     {
-      yDest = 0;
-      yIncrement = false;
+      yDest--;
+      yIncrement = true;
     }
     while (xTail != NULL) 
     {
@@ -165,7 +163,6 @@ void blendLevels(BlendArgs *args)
           xStartB = xStartA;
         }
         int64_t xDest = (int64_t) floor(xStartB / xFactor);
-//        int64_t xDest2 = (int64_t) ceil(xStartB / xFactor);
         int64_t xDestEnd = (int64_t) ceil(xEndB / xFactor);
         int64_t xCopy = xDestEnd - xDest;
         if (xCopy < 0)
