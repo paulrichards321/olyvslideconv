@@ -120,6 +120,8 @@ void blendLevels(BlendArgs *args)
   double grabWidthB = args->grabWidthB;
   double grabHeightB = args->grabHeightB;
 
+  if (grabWidthB < 0 || grabHeightB < 0) return;
+
   double xFactor = args->xFactor;
   double yFactor = args->yFactor;
  
@@ -129,7 +131,7 @@ void blendLevels(BlendArgs *args)
   int64_t yEndA = (int64_t) ceil(ySrc + grabHeightB);
   if (yEndA > args->ySize) yEndA = args->ySize;
   
-  int64_t xStartC = (int64_t) floor(xSrc / xFactor);
+  int64_t xStartC = (int64_t) floor(xSrc / xFactor) - 1;
   int64_t yStartC = (int64_t) floor(ySrc / yFactor);
   
   BlendSection** yFreeMap = args->yFreeMap;
@@ -137,8 +139,14 @@ void blendLevels(BlendArgs *args)
   {
     BlendSection *xTail = yFreeMap[y];
     int64_t yStartD = (int64_t) floor((double) y / yFactor);
-    int64_t yStartD2 = (int64_t) ceil((double) y / yFactor);
-    int64_t yDest = (yStartD - yStartC) + args->yMargin;
+//    int64_t yStartD2 = (int64_t) ceil((double) y / yFactor);
+    int64_t yDest = (yStartD - yStartC) + args->yMargin - 1;
+    bool yIncrement = true;
+    if (yDest < 0) 
+    {
+      yDest = 0;
+      yIncrement = false;
+    }
     while (xTail != NULL) 
     {
       int64_t xStartB = xTail->getStart();
@@ -153,7 +161,7 @@ void blendLevels(BlendArgs *args)
           xStartB = xStartA;
         }
         int64_t xDest = (int64_t) floor(xStartB / xFactor);
-        int64_t xDest2 = (int64_t) ceil(xStartB / xFactor);
+//        int64_t xDest2 = (int64_t) ceil(xStartB / xFactor);
         int64_t xDestEnd = (int64_t) ceil(xEndB / xFactor);
         int64_t xCopy = xDestEnd - xDest;
         if (xCopy < 0)
@@ -162,16 +170,17 @@ void blendLevels(BlendArgs *args)
           continue;
         }
         xCopy++;
-        int64_t yCopy = 1;
-        if (yStartD != yStartD2)
+        int64_t yCopy = 2;
+        if (yIncrement)
         {
           yCopy++;
         }
-        if (xDest != xDest2)
+        xDest = (xDest - xStartC) + args->xMargin;
+        if (xDest > 0)
         {
+          xDest--;
           xCopy++;
         }
-        xDest = (xDest - xStartC) + args->xMargin;
         safeBmpCpy(args->pSafeDest, xDest, yDest, args->pSafeSrcL2, xDest, yDest, xCopy, yCopy);
       }
       xTail = xTail->getNext();
