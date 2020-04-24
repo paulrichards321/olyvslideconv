@@ -11,15 +11,16 @@ endif()
 
 include(CheckStructHasMember)
 
-find_package(zlib REQUIRED)
-
 if ("\"${CMAKE_CXX_COMPILER_ID}\"" MATCHES "MSVC")
+  find_package(ZLIB REQUIRED)
   message("Zlib include directory=${ZLIB_INCLUDE_DIR}")
   find_package(minizip 1 REQUIRED)
   find_path(MINIZIP_INCLUDE_DIRS NAMES zip.h PATH_SUFFIXES minizip include)
   message("Minizip include directory=${MINIZIP_INCLUDE_DIRS}")
   set(CMAKE_REQUIRED_INCLUDES "${MINIZIP_INCLUDE_DIRS};${ZLIB_INCLUDE_DIR}")
   set(MINIZIP_LIBRARIES minizip::minizip)
+else()
+  find_package(ZLIB)
 endif()
 
 if (NOT MSVC AND ${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
