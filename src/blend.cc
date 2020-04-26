@@ -18,14 +18,14 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
   IniConf *pBaseConf = mConf[baseLevel];
   
   int64_t baseTotalWidth = getActualWidth(baseLevel);
-  int64_t fileWidth=pBaseConf->mPixelWidth;
-  int64_t fileHeight=pBaseConf->mPixelHeight;
+  int64_t stdFileWidth = pBaseConf->mPixelWidth;
+  int64_t stdFileHeight = pBaseConf->mPixelHeight;
   if (orientation == 90 || orientation == 270 || orientation == -90) 
   {
-    fileHeight=pBaseConf->mPixelWidth;
-    fileWidth=pBaseConf->mPixelHeight;
+    stdFileHeight = pBaseConf->mPixelWidth;
+    stdFileWidth = pBaseConf->mPixelHeight;
   }
-  
+ 
   for (int64_t y=0; y < ySize; y++)
   {
     BlendSection *xTail = new BlendSection(0);
@@ -33,13 +33,21 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
     yFreeMap[y] = xTail;
   }
  
+  int64_t fileWidth=stdFileWidth;
   for (int64_t tileNum=0; tileNum<pBaseConf->mTotalTiles; tileNum++)
   {
-    int64_t x2=pBaseConf->mxyArr[tileNum].mxPixel;
-    int64_t y2=pBaseConf->mxyArr[tileNum].myPixel;
-    int64_t x3=x2 + fileWidth;
-    int64_t y3=y2 + fileHeight;
+    int64_t fileHeight = stdFileHeight;
+    int64_t x2 = pBaseConf->mxyArr[tileNum].mxPixel;
+    int64_t y2 = pBaseConf->mxyArr[tileNum].myPixel;
+    int64_t x3 = x2 + fileWidth;
+    int64_t y3 = y2 + fileHeight;
     int64_t y = y2;
+    if (y < 0)
+    {
+      fileHeight += y;
+      if (fileHeight <= 0) continue;
+      y = 0;
+    }
     while (y < y3)
     {
       BlendSection *xTail = yFreeMap[y];
