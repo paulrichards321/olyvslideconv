@@ -65,19 +65,30 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
         int64_t tailLen = xTail->getFree();
         int64_t tailEnd = tailStart + tailLen;
         xNext = xTail->getNext();
-        if (x2 > tailStart && x2 < tailEnd)
+        if (x2 >= tailStart && x2 < tailEnd)
         {
-          xTail->setFree(x2 - tailStart);
+          if (x2 == tailStart)
+          {
+            delete xTail;
+            xTail = xPrevious;
+          }
+          else
+          {
+            xTail->setFree(x2 - tailStart);
+          }
           if (x3 < tailEnd)
           {
             BlendSection *xNew = new BlendSection(x3);
             xNew->setFree(tailEnd - x3);
             xNew->setNext(xNext);
-            xTail->setNext(xNew);
+            if (xTail)
+            {
+              xTail->setNext(xNew);
+            }
             xNext = xNew;
           }
         }
-        else if (x2 < tailStart && x3 > tailStart)
+        else if (x2 <= tailStart && x3 > tailStart)
         {
           if (x3 >= tailEnd)
           {
