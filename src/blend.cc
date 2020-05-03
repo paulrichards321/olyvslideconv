@@ -48,6 +48,14 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
       if (fileHeight <= 0) continue;
       y = 0;
     }
+    else if (y >= ySize)
+    {
+      continue;
+    }
+    if (y3 > ySize)
+    {
+      y3 = y;
+    }
     while (y < y3)
     {
       BlendSection *xTail = yFreeMap[y];
@@ -70,6 +78,14 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
           if (x2 == tailStart)
           {
             delete xTail;
+            if (xPrevious == NULL)
+            {
+              yFreeMap[y] = xNext;
+            }
+            else
+            {
+              xPrevious->setNext(xNext);
+            }
             xTail = xPrevious;
           }
           else
@@ -81,7 +97,11 @@ void CompositeSlide::blendLevelsRegionScan(BlendSection** yFreeMap, int64_t ySiz
             BlendSection *xNew = new BlendSection(x3);
             xNew->setFree(tailEnd - x3);
             xNew->setNext(xNext);
-            if (xTail)
+            if (xTail == NULL)
+            {
+              yFreeMap[y] = xNew;
+            }
+            else
             {
               xTail->setNext(xNew);
             }

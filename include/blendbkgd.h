@@ -7,6 +7,12 @@ protected:
   int64_t start, free;
   BlendSection *next;
 public:
+  BlendSection()
+  {
+    this->start = 0;
+    this->free = 0;
+    this->next = NULL;
+  }
   BlendSection(int64_t value)
   {
     this->start = value;

@@ -969,6 +969,14 @@ int SlideConvertor::outputLevel(int olympusLevel, int magnification, int outLeve
         mTotalYSections = mBaseTotalHeight2;
         mySubSections=new BlendSection*[mTotalYSections];
         memset(mySubSections, 0, mTotalYSections*sizeof(BlendSection*));
+        for (int64_t y = 0; y < mTotalYSections; y++)
+        {
+          if (mySubSections[y] != NULL)
+          {
+            std::cout << "NOT NULL @ y=" << y << std::endl;
+          }
+        }
+        std::cout << "Done check!" << std::endl;
         slide->blendLevelsRegionScan(mySubSections, mTotalYSections, mOrientation);
       }
       l.totalYSections = mTotalYSections;
