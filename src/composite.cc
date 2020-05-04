@@ -1375,6 +1375,16 @@ bool CompositeSlide::loadFullImage(int level, safeBmp **ptpFullImage, cv::Mat **
       xPixelNew = (int64_t) lround(xPixelNew / xZoomOut);
       yPixelNew = (int64_t) lround(yPixelNew / yZoomOut);
     }
+    if (xPixelNew < 0)
+    {
+      cols += xPixelNew;
+      xPixelNew = 0;
+    }
+    if (yPixelNew < 0)
+    {
+      rows += yPixelNew;
+      yPixelNew = 0;
+    }
     if (xPixelNew + cols > pImgComplete->cols)
     {
       cols -= (xPixelNew + cols) - pImgComplete->cols;
@@ -1383,7 +1393,7 @@ bool CompositeSlide::loadFullImage(int level, safeBmp **ptpFullImage, cv::Mat **
     {
       rows -= (yPixelNew + rows) - pImgComplete->rows;
     }
-    if (cols > 0 && rows > 0)
+    if (cols > 0 && rows > 0 && xPixelNew < pImgComplete->cols && yPixelNew < pImgComplete->rows)
     {
       cv::Rect roi(0, 0, (int) cols, (int) rows);
       cv::Mat srcRoi(*imgPart, roi);
